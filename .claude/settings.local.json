@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm create:*)",
+      "Bash(npx create-vite:*)",
+      "Bash(cp:*)",
+      "Bash(rm:*)",
+      "Bash(npm install)",
+      "Bash(npm run lint)",
+      "Bash(tree:*)",
+      "Bash(npm run build)",
+      "Bash(npm install:*)",
+      "Bash(npm audit fix:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
