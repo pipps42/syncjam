@@ -1,0 +1,62 @@
+/**
+ * Room and Participant Types for SyncJam
+ */
+
+import type { SpotifyUser } from './auth';
+
+export interface Room {
+  id: string;
+  code: string;
+  name: string;
+  host_user_id: string;
+  created_at: string;
+  is_active: boolean;
+  settings?: RoomSettings;
+  participant_count?: number;
+  connected_count?: number;
+}
+
+export interface RoomSettings {
+  max_participants?: number;
+  allow_anonymous?: boolean;
+}
+
+export interface Participant {
+  id: string;
+  room_id: string;
+  user_id?: string | null;
+  nickname?: string | null;
+  is_host: boolean;
+  joined_at: string;
+  left_at?: string | null;
+  connection_status: 'connected' | 'disconnected' | 'idle';
+  // Extended with user data when joined
+  spotify_user?: SpotifyUser;
+}
+
+export interface CreateRoomRequest {
+  name: string;
+  settings?: RoomSettings;
+}
+
+export interface JoinRoomRequest {
+  room_code: string;
+  nickname?: string; // For anonymous users
+}
+
+export interface RoomContextValue {
+  currentRoom: Room | null;
+  participants: Participant[];
+  isHost: boolean;
+  isLoading: boolean;
+  error: string | null;
+  createRoom: (name: string) => Promise<Room>;
+  joinRoom: (code: string, nickname?: string) => Promise<void>;
+  leaveRoom: () => Promise<void>;
+}
+
+export interface RoomViewProps {
+  room: Room;
+  participants: Participant[];
+  onLeave: () => void;
+}
