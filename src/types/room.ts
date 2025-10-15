@@ -4,6 +4,30 @@
 
 import type { SpotifyUser } from './auth';
 
+/**
+ * Database record types for Supabase Realtime payloads
+ */
+export interface ParticipantRecord {
+  id: string;
+  room_id: string;
+  user_id: string | null;
+  nickname: string | null;
+  is_host: boolean;
+  joined_at: string;
+  left_at: string | null;
+  connection_status: 'connected' | 'disconnected' | 'idle';
+}
+
+export interface RoomRecord {
+  id: string;
+  code: string;
+  name: string;
+  host_user_id: string;
+  created_at: string;
+  is_active: boolean;
+  settings: RoomSettings | null;
+}
+
 export interface Room {
   id: string;
   code: string;

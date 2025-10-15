@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
+import { validateRoomCode, validateNickname, type JoinRoomRequestBody } from '../types/requests.js';
 
 /**
  * Vercel Serverless Function: Join a room
@@ -18,34 +19,45 @@ export default async function handler(
   }
 
   try {
-    const { room_code, user_id, nickname } = req.body;
+    const { room_code, user_id, nickname } = req.body as JoinRoomRequestBody;
 
     // Validate input
     if (!room_code) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: 'Missing room code',
-        details: 'room_code is required' 
+        details: 'room_code is required'
       });
     }
 
     // Anonymous users must provide a nickname
     if (!user_id && !nickname) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: 'Missing identification',
-        details: 'Either user_id or nickname is required' 
+        details: 'Either user_id or nickname is required'
       });
     }
 
-    // Validate room code format (6 alphanumeric characters)
-    const codePattern = /^[A-Z0-9]{6}$/;
-    const cleanCode = room_code.trim().toUpperCase();
-    
-    if (!codePattern.test(cleanCode)) {
-      return res.status(400).json({ 
+    // Validate room code format
+    const codeValidation = validateRoomCode(room_code);
+    if (!codeValidation.valid) {
+      return res.status(400).json({
         error: 'Invalid room code',
-        details: 'Room code must be 6 alphanumeric characters' 
+        details: codeValidation.error
       });
     }
+
+    // Validate nickname if provided
+    if (nickname) {
+      const nicknameValidation = validateNickname(nickname);
+      if (!nicknameValidation.valid) {
+        return res.status(400).json({
+          error: 'Invalid nickname',
+          details: nicknameValidation.error
+        });
+      }
+    }
+
+    const cleanCode = room_code.trim().toUpperCase();
 
     // Initialize Supabase client
     const supabaseUrl = process.env.SUPABASE_URL;
@@ -74,11 +86,13 @@ export default async function handler(
     }
 
     // Check if room is full
-    const { count: participantCount } = await supabase
+    const countRes = await supabase
       .from('participants')
-      .select('*', { count: 'exact', head: true })
+      .select('id', { count: 'exact' })
       .eq('room_id', room.id)
       .is('left_at', null);
+
+    const participantCount = typeof countRes.count === 'number' ? countRes.count : 0;
 
     const maxParticipants = room.settings?.max_participants || 20;
     if (participantCount && participantCount >= maxParticipants) {

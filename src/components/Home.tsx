@@ -13,14 +13,6 @@ export function Home() {
     navigate('/create');
   }
 
-  function handleJoinRoom() {
-    if (roomCode.trim()) {
-      navigate(`/join?code=${roomCode.trim().toUpperCase()}`);
-    } else {
-      setShowJoinModal(true);
-    }
-  }
-
   function handleQuickJoin(e: React.FormEvent) {
     e.preventDefault();
     if (roomCode.trim()) {
@@ -82,7 +74,7 @@ export function Home() {
                 <button
                   className="action-button primary"
                   onClick={handleCreateRoom}
-                  disabled={session && !session.is_premium}
+                  disabled={session ? !session.is_premium : false}
                 >
                   Create Room
                 </button>

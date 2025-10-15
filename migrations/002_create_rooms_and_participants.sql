@@ -36,17 +36,11 @@ CREATE TABLE IF NOT EXISTS public.participants (
   joined_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   left_at TIMESTAMPTZ,
   connection_status TEXT NOT NULL DEFAULT 'connected' CHECK (connection_status IN ('connected', 'disconnected', 'idle')),
-  
+
   -- Ensure either user_id or nickname is present (for anonymous users)
   CONSTRAINT participant_identification CHECK (
     user_id IS NOT NULL OR nickname IS NOT NULL
-  ),
-  
-  -- Ensure unique active participants per room
-  CONSTRAINT unique_active_participant UNIQUE (room_id, user_id) WHERE left_at IS NULL,
-  
-  -- Ensure nickname uniqueness per room for anonymous users
-  CONSTRAINT unique_nickname_per_room UNIQUE (room_id, nickname) WHERE user_id IS NULL AND left_at IS NULL
+  )
 );
 
 -- Indexes for performance
@@ -54,6 +48,17 @@ CREATE INDEX IF NOT EXISTS idx_participants_room_id ON public.participants(room_
 CREATE INDEX IF NOT EXISTS idx_participants_user_id ON public.participants(user_id) WHERE user_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_participants_active ON public.participants(room_id, left_at) WHERE left_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_participants_connection ON public.participants(room_id, connection_status) WHERE left_at IS NULL;
+
+-- Unique constraints using partial indexes (WHERE clause not supported in CONSTRAINT)
+-- Ensure unique active participants per room (authenticated users)
+CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_active_participant
+  ON public.participants(room_id, user_id)
+  WHERE left_at IS NULL AND user_id IS NOT NULL;
+
+-- Ensure nickname uniqueness per room for anonymous users
+CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_nickname_per_room
+  ON public.participants(room_id, nickname)
+  WHERE user_id IS NULL AND left_at IS NULL;
 
 -- ============================================
 -- 3. Create function to generate unique room codes

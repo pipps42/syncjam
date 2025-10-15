@@ -1,17 +1,29 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useRoom } from '../../contexts/RoomContext';
 import './JoinRoom.css';
 
 export function JoinRoom() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { session } = useAuth();
   const { joinRoom } = useRoom();
   const [roomCode, setRoomCode] = useState('');
   const [nickname, setNickname] = useState('');
   const [isJoining, setIsJoining] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Pre-fill room code from URL if present
+  useEffect(() => {
+    const codeFromUrl = searchParams.get('code');
+    if (codeFromUrl) {
+      const cleaned = codeFromUrl.toUpperCase().replace(/[^A-Z0-9]/g, '');
+      if (cleaned.length <= 6) {
+        setRoomCode(cleaned);
+      }
+    }
+  }, [searchParams]);
 
   // If user is not authenticated, they need to provide a nickname
   const isAnonymous = !session;

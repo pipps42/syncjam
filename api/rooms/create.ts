@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
+import { validateRoomName, type CreateRoomRequestBody } from '../types/requests.js';
 
 /**
  * Vercel Serverless Function: Create a new room
@@ -18,20 +19,22 @@ export default async function handler(
   }
 
   try {
-    const { name, host_user_id } = req.body;
+    const { name, host_user_id } = req.body as CreateRoomRequestBody;
 
     // Validate input
     if (!name || !host_user_id) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: 'Missing required fields',
-        details: 'name and host_user_id are required' 
+        details: 'name and host_user_id are required'
       });
     }
 
-    if (name.length > 50) {
-      return res.status(400).json({ 
-        error: 'Room name too long',
-        details: 'Room name must be 50 characters or less' 
+    // Validate room name
+    const nameValidation = validateRoomName(name);
+    if (!nameValidation.valid) {
+      return res.status(400).json({
+        error: 'Invalid room name',
+        details: nameValidation.error
       });
     }
 
@@ -68,29 +71,31 @@ export default async function handler(
     }
 
     // Generate a unique room code
-    const { data: codeResult, error: codeError } = await supabase
-      .rpc('generate_room_code');
-
-    if (codeError) {
-      console.error('Failed to generate room code:', codeError);
+    const { data, error } = await supabase.rpc('generate_room_code');
+    const code = Array.isArray(data) ? data[0] : data;
+    if (!code || error) {
+      console.error('Failed to generate room code:', error);
       return res.status(500).json({ 
         error: 'Failed to generate room code',
-        details: codeError.message 
+        details: error?.message 
       });
     }
+
+    // Define default room settings
+    const defaultSettings = {
+      max_participants: 20,
+      allow_anonymous: true
+    };
 
     // Create the room
     const { data: room, error: roomError } = await supabase
       .from('rooms')
       .insert({
-        code: codeResult,
+        code: code,
         name: name.trim(),
         host_user_id,
         is_active: true,
-        settings: {
-          max_participants: 20,
-          allow_anonymous: true
-        }
+        settings: defaultSettings
       })
       .select()
       .single();

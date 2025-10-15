@@ -1,7 +1,8 @@
 import { createContext, useContext, useEffect, useState, type ReactNode, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
-import type { Room, Participant, RoomContextValue } from '../types/room';
+import type { Room, Participant, RoomContextValue, ParticipantRecord, RoomRecord } from '../types/room';
+import type { ApiErrorResponse, CreateRoomResponse, JoinRoomResponse, ParticipantWithUser } from '../types/api';
 import type { RealtimeChannel, RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 
 const RoomContext = createContext<RoomContextValue | undefined>(undefined);
@@ -56,11 +57,11 @@ export function RoomProvider({ children }: RoomProviderProps) {
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to create room');
+        const errorData: ApiErrorResponse = await response.json();
+        throw new Error(errorData.details || errorData.error || 'Failed to create room');
       }
 
-      const room = await response.json();
+      const room: CreateRoomResponse = await response.json();
       setCurrentRoom(room);
 
       // Subscribe to realtime updates for this room
@@ -98,19 +99,25 @@ export function RoomProvider({ children }: RoomProviderProps) {
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to join room');
+        const errorData: ApiErrorResponse = await response.json();
+        throw new Error(errorData.details || errorData.error || 'Failed to join room');
       }
 
-      const { room, participant } = await response.json();
-      
+      const data: JoinRoomResponse = await response.json();
+
+      // Convert room settings from null to undefined for type consistency
+      const room: Room = {
+        ...data.room,
+        settings: data.room.settings || undefined,
+      };
+
       setCurrentRoom(room);
-      
+
       // Load all participants
-      await loadParticipants(room.id);
-      
+      await loadParticipants(data.room.id);
+
       // Subscribe to realtime updates
-      subscribeToRoom(room.id);
+      subscribeToRoom(data.room.id);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to join room';
       setError(message);
@@ -163,7 +170,7 @@ export function RoomProvider({ children }: RoomProviderProps) {
   /**
    * Load participants for a room
    */
-  async function loadParticipants(roomId: string) {
+  async function loadParticipants(roomId: string): Promise<void> {
     const { data, error } = await supabase
       .from('participants')
       .select(`
@@ -181,10 +188,25 @@ export function RoomProvider({ children }: RoomProviderProps) {
       return;
     }
 
+    if (!data) {
+      setParticipants([]);
+      return;
+    }
+
     // Transform data to include spotify_user directly
-    const transformedParticipants = data.map(p => ({
-      ...p,
-      spotify_user: p.auth_sessions?.[0]?.spotify_user || null,
+    // Cast to ParticipantWithUser to properly type the joined data
+    const rawParticipants = data as unknown as ParticipantWithUser[];
+
+    const transformedParticipants: Participant[] = rawParticipants.map(p => ({
+      id: p.id,
+      room_id: p.room_id,
+      user_id: p.user_id,
+      nickname: p.nickname,
+      is_host: p.is_host,
+      joined_at: p.joined_at,
+      left_at: p.left_at,
+      connection_status: p.connection_status,
+      spotify_user: p.auth_sessions?.[0]?.spotify_user,
     }));
 
     setParticipants(transformedParticipants);
@@ -210,7 +232,7 @@ export function RoomProvider({ children }: RoomProviderProps) {
           table: 'participants',
           filter: `room_id=eq.${roomId}`,
         },
-        (payload: RealtimePostgresChangesPayload<any>) => {
+        (payload: RealtimePostgresChangesPayload<ParticipantRecord>) => {
           handleParticipantChange(payload);
         }
       )
@@ -222,7 +244,7 @@ export function RoomProvider({ children }: RoomProviderProps) {
           table: 'rooms',
           filter: `id=eq.${roomId}`,
         },
-        (payload: RealtimePostgresChangesPayload<any>) => {
+        (payload: RealtimePostgresChangesPayload<RoomRecord>) => {
           handleRoomChange(payload);
         }
       )
@@ -234,14 +256,26 @@ export function RoomProvider({ children }: RoomProviderProps) {
   /**
    * Handle participant changes from realtime
    */
-  function handleParticipantChange(payload: RealtimePostgresChangesPayload<any>) {
+  function handleParticipantChange(payload: RealtimePostgresChangesPayload<ParticipantRecord>) {
     if (payload.eventType === 'INSERT') {
-      // New participant joined
-      setParticipants(prev => [...prev, payload.new as Participant]);
+      // New participant joined - convert record to Participant with optional spotify_user
+      const newParticipant: Participant = {
+        ...payload.new,
+        spotify_user: undefined, // Will be populated by loadParticipants
+      };
+      setParticipants(prev => [...prev, newParticipant]);
     } else if (payload.eventType === 'UPDATE') {
       // Participant updated (status change, left room, etc.)
       setParticipants(prev =>
-        prev.map(p => (p.id === payload.new.id ? payload.new as Participant : p))
+        prev.map(p => {
+          if (p.id === payload.new.id) {
+            return {
+              ...p,
+              ...payload.new,
+            };
+          }
+          return p;
+        })
       );
     } else if (payload.eventType === 'DELETE') {
       // Participant removed
@@ -252,10 +286,17 @@ export function RoomProvider({ children }: RoomProviderProps) {
   /**
    * Handle room changes from realtime
    */
-  function handleRoomChange(payload: RealtimePostgresChangesPayload<any>) {
+  function handleRoomChange(payload: RealtimePostgresChangesPayload<RoomRecord>) {
     if (payload.eventType === 'UPDATE') {
-      setCurrentRoom(prev => prev ? { ...prev, ...payload.new } : null);
-      
+      setCurrentRoom(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          ...payload.new,
+          settings: payload.new.settings || undefined,
+        };
+      });
+
       // If room is no longer active, leave it
       if (!payload.new.is_active) {
         leaveRoom();
