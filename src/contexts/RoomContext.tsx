@@ -213,12 +213,7 @@ export function RoomProvider({ children }: RoomProviderProps) {
   async function loadParticipants(roomId: string): Promise<void> {
     const { data, error } = await supabase
       .from('participants')
-      .select(`
-        *,
-        auth_sessions (
-          spotify_user
-        )
-      `)
+      .select('*')
       .eq('room_id', roomId)
       .is('left_at', null)
       .order('joined_at', { ascending: true });
@@ -233,23 +228,30 @@ export function RoomProvider({ children }: RoomProviderProps) {
       return;
     }
 
-    // Transform data to include spotify_user directly
-    // Cast to ParticipantWithUser to properly type the joined data
-    const rawParticipants = data as unknown as ParticipantWithUser[];
+    // Load spotify user data separately for each participant with user_id
+    const participantsWithUsers = await Promise.all(
+      data.map(async (p) => {
+        if (!p.user_id) {
+          return {
+            ...p,
+            spotify_user: undefined,
+          };
+        }
 
-    const transformedParticipants: Participant[] = rawParticipants.map(p => ({
-      id: p.id,
-      room_id: p.room_id,
-      user_id: p.user_id,
-      nickname: p.nickname,
-      is_host: p.is_host,
-      joined_at: p.joined_at,
-      left_at: p.left_at,
-      connection_status: p.connection_status,
-      spotify_user: p.auth_sessions?.[0]?.spotify_user,
-    }));
+        const { data: sessionData } = await supabase
+          .from('auth_sessions')
+          .select('spotify_user')
+          .eq('user_id', p.user_id)
+          .single();
 
-    setParticipants(transformedParticipants);
+        return {
+          ...p,
+          spotify_user: sessionData?.spotify_user,
+        };
+      })
+    );
+
+    setParticipants(participantsWithUsers);
   }
 
   /**
