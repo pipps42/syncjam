@@ -1,15 +1,16 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useAuth } from '../../contexts/AuthContext';
 import { useRoom } from '../../contexts/RoomContext';
-import './RoomView.css';
+import './RoomViewMobile.css';
+
+type ActiveTab = 'queue' | 'search' | 'participants' | 'chat';
 
 export function RoomView() {
   const { code } = useParams<{ code: string }>();
   const navigate = useNavigate();
-  const { session } = useAuth();
   const { currentRoom, participants, isHost, leaveRoom } = useRoom();
   const [showCopied, setShowCopied] = useState(false);
+  const [activeTab, setActiveTab] = useState<ActiveTab>('queue');
 
   useEffect(() => {
     if (!code) {
@@ -19,7 +20,6 @@ export function RoomView() {
 
     // Load room data if not already loaded
     if (!currentRoom || currentRoom.code !== code) {
-      // This will be handled by RoomContext
       console.log('Loading room:', code);
     }
   }, [code, currentRoom, navigate]);
@@ -33,23 +33,11 @@ export function RoomView() {
     }
   }
 
-  async function copyRoomCode() {
-    if (!currentRoom) return;
-    
-    try {
-      await navigator.clipboard.writeText(currentRoom.code);
-      setShowCopied(true);
-      setTimeout(() => setShowCopied(false), 2000);
-    } catch (error) {
-      console.error('Failed to copy:', error);
-    }
-  }
-
   async function copyShareLink() {
     if (!currentRoom) return;
-    
+
     const shareUrl = `${window.location.origin}/join?code=${currentRoom.code}`;
-    
+
     try {
       await navigator.clipboard.writeText(shareUrl);
       setShowCopied(true);
@@ -72,136 +60,171 @@ export function RoomView() {
   const connectedCount = activeParticipants.filter(p => p.connection_status === 'connected').length;
 
   return (
-    <div className="room-view-container">
-      {/* Room Header */}
-      <header className="room-header">
-        <div className="room-info">
+    <div className="room-view-mobile">
+      {/* Mobile Header */}
+      <header className="room-header-mobile">
+        <div className="room-title-section">
           <h1>{currentRoom.name}</h1>
-          <div className="room-code-display">
+          <div className="room-code-badge">
             <span className="room-code">{currentRoom.code}</span>
-            <button
-              className="copy-button"
-              onClick={copyRoomCode}
-              title="Copy room code"
-            >
-              {showCopied ? '✓' : '📋'}
-            </button>
           </div>
         </div>
-        
-        <div className="room-actions">
+        <div className="room-header-actions">
           {isHost && (
-            <button className="host-badge">
-              👑 Host
-            </button>
+            <span className="host-badge-small">👑</span>
           )}
           <button
-            className="share-button"
+            className="share-button-icon"
             onClick={copyShareLink}
+            title="Share room"
           >
-            Share Link
+            🔗
           </button>
           <button
-            className="leave-button"
+            className="leave-button-icon"
             onClick={handleLeaveRoom}
+            title="Leave room"
           >
-            Leave Room
+            ✕
           </button>
         </div>
       </header>
 
-      {/* Main Content Area */}
-      <div className="room-content">
-        {/* Participants Panel */}
-        <aside className="participants-panel">
-          <div className="panel-header">
-            <h2>Participants ({connectedCount}/{activeParticipants.length})</h2>
+      {/* Main Content Area with Tab Switching */}
+      <main className="room-main-content">
+        {/* Queue Tab */}
+        {activeTab === 'queue' && (
+          <div className="tab-content queue-content">
+            <div className="empty-state">
+              <span className="empty-icon">🎵</span>
+              <h2>Queue is empty</h2>
+              <p>Search for songs to add them to the queue</p>
+            </div>
           </div>
-          
-          <ul className="participants-list">
-            {activeParticipants.map((participant) => (
-              <li
-                key={participant.id}
-                className={`participant-item ${participant.connection_status}`}
-              >
-                <div className="participant-info">
-                  <span className="participant-status-dot"></span>
-                  <span className="participant-name">
-                    {participant.nickname || participant.spotify_user?.display_name || 'Anonymous'}
-                    {participant.is_host && (
-                      <span className="host-indicator" title="Room Host">👑</span>
+        )}
+
+        {/* Search Tab */}
+        {activeTab === 'search' && (
+          <div className="tab-content search-content">
+            <div className="search-box">
+              <input
+                type="search"
+                placeholder="Search for songs, artists, albums..."
+                className="search-input"
+              />
+            </div>
+            <div className="empty-state">
+              <span className="empty-icon">🔍</span>
+              <p>Search for music to add to the queue</p>
+            </div>
+          </div>
+        )}
+
+        {/* Participants Tab */}
+        {activeTab === 'participants' && (
+          <div className="tab-content participants-content">
+            <div className="participants-header">
+              <h2>Participants</h2>
+              <span className="participant-count">{connectedCount} online</span>
+            </div>
+
+            <ul className="participants-list-mobile">
+              {activeParticipants.map((participant) => (
+                <li
+                  key={participant.id}
+                  className={`participant-item-mobile ${participant.connection_status}`}
+                >
+                  <div className="participant-avatar">
+                    {participant.spotify_user?.display_name?.[0]?.toUpperCase() ||
+                     participant.nickname?.[0]?.toUpperCase() ||
+                     '?'}
+                  </div>
+                  <div className="participant-details">
+                    <div className="participant-name-row">
+                      <span className="participant-name">
+                        {participant.nickname || participant.spotify_user?.display_name || 'Anonymous'}
+                      </span>
+                      {participant.is_host && (
+                        <span className="host-badge-inline">👑</span>
+                      )}
+                    </div>
+                    {participant.spotify_user?.product === 'premium' && (
+                      <span className="premium-badge-mobile">Premium</span>
                     )}
-                  </span>
-                </div>
-                {participant.spotify_user?.product === 'premium' && (
-                  <span className="premium-badge" title="Spotify Premium">
-                    Premium
-                  </span>
-                )}
-              </li>
-            ))}
-          </ul>
+                  </div>
+                  <div className={`status-dot ${participant.connection_status}`}></div>
+                </li>
+              ))}
+            </ul>
 
-          {currentRoom.settings?.max_participants && activeParticipants.length >= currentRoom.settings.max_participants && (
-            <div className="room-full-notice">
-              <p>Room is full</p>
-            </div>
-          )}
-        </aside>
-
-        {/* Player and Queue Area */}
-        <main className="main-content">
-          <div className="placeholder-content">
-            <div className="placeholder-icon">🎵</div>
-            <h2>Room is Ready!</h2>
-            <p>
-              {isHost 
-                ? "You're the host. Start playing music to begin the listening session."
-                : "Waiting for the host to start playing music..."}
-            </p>
-            
-            <div className="room-stats">
-              <div className="stat-item">
-                <span className="stat-label">Room Code</span>
-                <span className="stat-value">{currentRoom.code}</span>
-              </div>
-              <div className="stat-item">
-                <span className="stat-label">Connected</span>
-                <span className="stat-value">{connectedCount} users</span>
-              </div>
-              <div className="stat-item">
-                <span className="stat-label">Created</span>
-                <span className="stat-value">
-                  {new Date(currentRoom.created_at).toLocaleTimeString([], {
-                    hour: '2-digit',
-                    minute: '2-digit'
-                  })}
-                </span>
-              </div>
-            </div>
-
-            {!session && (
-              <div className="guest-notice">
-                <p>
-                  You're listening as a guest. 
-                  <button
-                    className="link-inline"
-                    onClick={() => navigate('/login', { state: { returnTo: `/room/${code}` } })}
-                  >
-                    Sign in with Spotify
-                  </button> 
-                  to access your library.
-                </p>
+            {currentRoom.settings?.max_participants && activeParticipants.length >= currentRoom.settings.max_participants && (
+              <div className="room-full-notice">
+                <p>Room is full ({currentRoom.settings.max_participants}/{currentRoom.settings.max_participants})</p>
               </div>
             )}
           </div>
-        </main>
-      </div>
+        )}
 
-      {/* Notification for copied text */}
+        {/* Chat Tab */}
+        {activeTab === 'chat' && (
+          <div className="tab-content chat-content">
+            <div className="chat-messages">
+              <div className="empty-state">
+                <span className="empty-icon">💬</span>
+                <p>No messages yet. Start the conversation!</p>
+              </div>
+            </div>
+            <div className="chat-input-container">
+              <input
+                type="text"
+                placeholder="Type a message..."
+                className="chat-input"
+              />
+              <button className="send-button">Send</button>
+            </div>
+          </div>
+        )}
+      </main>
+
+      {/* Bottom Navigation */}
+      <nav className="bottom-nav">
+        <button
+          className={`nav-tab ${activeTab === 'queue' ? 'active' : ''}`}
+          onClick={() => setActiveTab('queue')}
+        >
+          <span className="nav-icon">🎵</span>
+          <span className="nav-label">Queue</span>
+        </button>
+        <button
+          className={`nav-tab ${activeTab === 'search' ? 'active' : ''}`}
+          onClick={() => setActiveTab('search')}
+        >
+          <span className="nav-icon">🔍</span>
+          <span className="nav-label">Search</span>
+        </button>
+        <button
+          className={`nav-tab ${activeTab === 'participants' ? 'active' : ''}`}
+          onClick={() => setActiveTab('participants')}
+        >
+          <span className="nav-icon">👥</span>
+          <span className="nav-label">Participants</span>
+          {connectedCount > 0 && (
+            <span className="nav-badge">{connectedCount}</span>
+          )}
+        </button>
+        <button
+          className={`nav-tab ${activeTab === 'chat' ? 'active' : ''}`}
+          onClick={() => setActiveTab('chat')}
+        >
+          <span className="nav-icon">💬</span>
+          <span className="nav-label">Chat</span>
+        </button>
+      </nav>
+
+      {/* Notification Toast */}
       {showCopied && (
         <div className="toast-notification">
-          Copied to clipboard!
+          Link copied to clipboard!
         </div>
       )}
     </div>

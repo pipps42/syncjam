@@ -28,6 +28,43 @@ export function RoomProvider({ children }: RoomProviderProps) {
     };
   }, [roomChannel]);
 
+  // Handle browser tab close or navigation away
+  useEffect(() => {
+    if (!currentRoom) return;
+
+    const handleBeforeUnload = async () => {
+      // Mark current user as disconnected
+      const participantId = participants.find(
+        p => (session ? p.user_id === session.user_id : p.nickname) && !p.left_at
+      )?.id;
+
+      if (participantId) {
+        // Use sendBeacon for reliable delivery even if page is closing
+        const data = JSON.stringify({
+          left_at: new Date().toISOString(),
+          connection_status: 'disconnected'
+        });
+
+        navigator.sendBeacon(
+          `/api/participants/${participantId}/leave`,
+          new Blob([data], { type: 'application/json' })
+        );
+
+        // Also try direct update (may not complete if page closes quickly)
+        await supabase
+          .from('participants')
+          .update({ left_at: new Date().toISOString(), connection_status: 'disconnected' })
+          .eq('id', participantId);
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [currentRoom, participants, session]);
+
   /**
    * Create a new room (host only)
    */
@@ -63,6 +100,9 @@ export function RoomProvider({ children }: RoomProviderProps) {
 
       const room: CreateRoomResponse = await response.json();
       setCurrentRoom(room);
+
+      // Load all participants (including the host added by trigger)
+      await loadParticipants(room.id);
 
       // Subscribe to realtime updates for this room
       subscribeToRoom(room.id);
@@ -258,12 +298,10 @@ export function RoomProvider({ children }: RoomProviderProps) {
    */
   function handleParticipantChange(payload: RealtimePostgresChangesPayload<ParticipantRecord>) {
     if (payload.eventType === 'INSERT') {
-      // New participant joined - convert record to Participant with optional spotify_user
-      const newParticipant: Participant = {
-        ...payload.new,
-        spotify_user: undefined, // Will be populated by loadParticipants
-      };
-      setParticipants(prev => [...prev, newParticipant]);
+      // New participant joined - reload participants to get spotify_user data
+      if (currentRoom) {
+        loadParticipants(currentRoom.id);
+      }
     } else if (payload.eventType === 'UPDATE') {
       // Participant updated (status change, left room, etc.)
       setParticipants(prev =>
