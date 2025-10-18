@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS public.rooms (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   is_active BOOLEAN NOT NULL DEFAULT true,
   settings JSONB DEFAULT '{"max_participants": 20, "allow_anonymous": true}'::jsonb,
-  
+
   -- Constraints
   CONSTRAINT room_code_format CHECK (code ~ '^[A-Z0-9]{6}$')
 );
@@ -34,8 +34,9 @@ CREATE TABLE IF NOT EXISTS public.participants (
   nickname TEXT,
   is_host BOOLEAN NOT NULL DEFAULT false,
   joined_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  left_at TIMESTAMPTZ,
   connection_status TEXT NOT NULL DEFAULT 'connected' CHECK (connection_status IN ('connected', 'disconnected', 'idle')),
+  disconnected_at TIMESTAMPTZ DEFAULT NULL,
+  reconnected_at TIMESTAMPTZ DEFAULT NULL,
 
   -- Ensure either user_id or nickname is present (for anonymous users)
   CONSTRAINT participant_identification CHECK (
@@ -46,19 +47,19 @@ CREATE TABLE IF NOT EXISTS public.participants (
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_participants_room_id ON public.participants(room_id);
 CREATE INDEX IF NOT EXISTS idx_participants_user_id ON public.participants(user_id) WHERE user_id IS NOT NULL;
-CREATE INDEX IF NOT EXISTS idx_participants_active ON public.participants(room_id, left_at) WHERE left_at IS NULL;
-CREATE INDEX IF NOT EXISTS idx_participants_connection ON public.participants(room_id, connection_status) WHERE left_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_participants_connection ON public.participants(room_id, connection_status);
+CREATE INDEX IF NOT EXISTS idx_participants_disconnected ON public.participants(room_id, connection_status, disconnected_at) WHERE connection_status = 'disconnected' AND disconnected_at IS NOT NULL;
 
 -- Unique constraints using partial indexes (WHERE clause not supported in CONSTRAINT)
 -- Ensure unique active participants per room (authenticated users)
 CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_active_participant
   ON public.participants(room_id, user_id)
-  WHERE left_at IS NULL AND user_id IS NOT NULL;
+  WHERE connection_status = 'connected' AND user_id IS NOT NULL;
 
 -- Ensure nickname uniqueness per room for anonymous users
 CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_nickname_per_room
   ON public.participants(room_id, nickname)
-  WHERE user_id IS NULL AND left_at IS NULL;
+  WHERE user_id IS NULL AND connection_status = 'connected';
 
 -- ============================================
 -- 3. Create function to generate unique room codes
@@ -108,23 +109,25 @@ CREATE TRIGGER add_host_on_room_creation
 -- ============================================
 -- 5. Create function to clean up inactive rooms
 -- ============================================
+-- NOTE: This function is deprecated and will be replaced by Vercel cron job
+-- Kept for reference only
 CREATE OR REPLACE FUNCTION cleanup_inactive_rooms()
 RETURNS void AS $$
 BEGIN
-  -- Mark rooms as inactive if no participants for 24 hours
+  -- Mark rooms as inactive if no connected participants for 24 hours
   UPDATE public.rooms
   SET is_active = false
   WHERE is_active = true
     AND id IN (
       SELECT r.id
       FROM public.rooms r
-      LEFT JOIN public.participants p ON r.id = p.room_id AND p.left_at IS NULL
+      LEFT JOIN public.participants p ON r.id = p.room_id AND p.connection_status = 'connected'
       WHERE r.is_active = true
       GROUP BY r.id
       HAVING COUNT(p.id) = 0
         AND r.created_at < NOW() - INTERVAL '24 hours'
     );
-    
+
   -- Delete very old inactive rooms (30 days)
   DELETE FROM public.rooms
   WHERE is_active = false
@@ -136,15 +139,16 @@ $$ LANGUAGE plpgsql;
 -- 6. Create view for active rooms with participant count
 -- ============================================
 CREATE OR REPLACE VIEW public.active_rooms_view AS
-SELECT 
+SELECT
   r.id,
   r.code,
   r.name,
   r.host_user_id,
   r.created_at,
   r.settings,
-  COUNT(DISTINCT p.id) FILTER (WHERE p.left_at IS NULL) AS participant_count,
-  COUNT(DISTINCT p.id) FILTER (WHERE p.left_at IS NULL AND p.connection_status = 'connected') AS connected_count
+  COUNT(DISTINCT p.id) FILTER (WHERE p.connection_status = 'connected') AS participant_count,
+  COUNT(DISTINCT p.id) FILTER (WHERE p.connection_status = 'connected') AS connected_count,
+  COUNT(DISTINCT p.id) FILTER (WHERE p.connection_status = 'disconnected') AS disconnected_count
 FROM public.rooms r
 LEFT JOIN public.participants p ON r.id = p.room_id
 WHERE r.is_active = true
@@ -216,8 +220,10 @@ COMMENT ON TABLE public.rooms IS 'Stores listening room sessions where users can
 COMMENT ON TABLE public.participants IS 'Tracks users who have joined rooms, including anonymous guests';
 COMMENT ON COLUMN public.rooms.code IS '6-character alphanumeric code used to join the room';
 COMMENT ON COLUMN public.rooms.settings IS 'JSON object containing room settings like max participants, privacy, etc';
-COMMENT ON COLUMN public.participants.nickname IS 'Display name for anonymous users who haven not authenticated with Spotify';
+COMMENT ON COLUMN public.participants.nickname IS 'Display name for anonymous users who have not authenticated with Spotify';
 COMMENT ON COLUMN public.participants.connection_status IS 'Track if user is actively connected, disconnected, or idle';
+COMMENT ON COLUMN public.participants.disconnected_at IS 'Timestamp when participant disconnected. Set to NULL when reconnecting.';
+COMMENT ON COLUMN public.participants.reconnected_at IS 'Timestamp of most recent reconnection event.';
 
 -- ============================================
 -- 10. Grant permissions

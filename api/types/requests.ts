@@ -5,12 +5,25 @@
 export interface CreateRoomRequestBody {
   name: string;
   host_user_id: string;
+  is_public?: boolean;
 }
 
 export interface JoinRoomRequestBody {
   room_code: string;
   user_id?: string | null;
   nickname?: string | null;
+}
+
+export interface TerminateRoomRequestBody {
+  room_id: string;
+  host_user_id: string;
+}
+
+export interface DisconnectParticipantRequestBody {
+  room_id: string;
+  user_id: string | null;
+  connection_status: 'disconnected';
+  disconnected_at?: string;
 }
 
 /**

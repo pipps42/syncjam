@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { MyRoomBanner } from './MyRoomBanner';
+import { PublicRoomsList } from './PublicRoomsList';
 import './Home.css';
 
 export function Home() {
@@ -55,6 +57,9 @@ export function Home() {
       <main className="home-main">
         <div className="hero-section">
           <div className="hero-content">
+            {/* My Room Banner - shown if user is hosting a room */}
+            <MyRoomBanner />
+
             <h2 className="hero-title">
               Listen Together,<br />
               <span className="gradient-text">Stay in Sync</span>
@@ -148,7 +153,7 @@ export function Home() {
             {!session && (
               <div className="auth-prompt">
                 <p>
-                  Want the full experience? 
+                  Want the full experience?
                   <button
                     className="link-button"
                     onClick={() => navigate('/login')}
@@ -158,6 +163,9 @@ export function Home() {
                 </p>
               </div>
             )}
+
+            {/* Public Rooms List */}
+            <PublicRoomsList />
           </div>
         </div>
 

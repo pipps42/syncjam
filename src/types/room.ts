@@ -14,8 +14,9 @@ export interface ParticipantRecord {
   nickname: string | null;
   is_host: boolean;
   joined_at: string;
-  left_at: string | null;
   connection_status: 'connected' | 'disconnected' | 'idle';
+  disconnected_at: string | null;
+  reconnected_at: string | null;
 }
 
 export interface RoomRecord {
@@ -25,6 +26,7 @@ export interface RoomRecord {
   host_user_id: string;
   created_at: string;
   is_active: boolean;
+  is_public: boolean;
   settings: RoomSettings | null;
 }
 
@@ -35,6 +37,7 @@ export interface Room {
   host_user_id: string;
   created_at: string;
   is_active: boolean;
+  is_public: boolean;
   settings?: RoomSettings;
   participant_count?: number;
   connected_count?: number;
@@ -52,14 +55,16 @@ export interface Participant {
   nickname?: string | null;
   is_host: boolean;
   joined_at: string;
-  left_at?: string | null;
   connection_status: 'connected' | 'disconnected' | 'idle';
+  disconnected_at?: string | null;
+  reconnected_at?: string | null;
   // Extended with user data when joined
   spotify_user?: SpotifyUser;
 }
 
 export interface CreateRoomRequest {
   name: string;
+  is_public?: boolean;
   settings?: RoomSettings;
 }
 
@@ -77,6 +82,7 @@ export interface RoomContextValue {
   createRoom: (name: string) => Promise<Room>;
   joinRoom: (code: string, nickname?: string) => Promise<void>;
   leaveRoom: () => Promise<void>;
+  reconnectToRoom: (code: string) => Promise<void>;
 }
 
 export interface RoomViewProps {

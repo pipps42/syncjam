@@ -1,6 +1,20 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
-import { validateRoomCode, validateNickname, type JoinRoomRequestBody } from '../types/requests.js';
+import { validateRoomCode, validateNickname, type JoinRoomRequestBody } from '../types/requests';
+
+/**
+ * Helper function to trigger cleanup in background
+ * Fire-and-forget - doesn't wait for response
+ */
+function triggerCleanup() {
+  const cleanupUrl = process.env.VERCEL_URL
+    ? `https://${process.env.VERCEL_URL}/api/rooms/cleanup`
+    : 'http://localhost:3000/api/rooms/cleanup';
+
+  fetch(cleanupUrl, { method: 'POST' })
+    .then(() => console.log('[JOIN] Cleanup triggered'))
+    .catch(err => console.error('[JOIN] Cleanup trigger failed:', err));
+}
 
 /**
  * Vercel Serverless Function: Join a room
@@ -70,82 +84,126 @@ export default async function handler(
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Find the room
+    // Find the room (can be active or inactive - user can reconnect to inactive rooms)
     const { data: room, error: roomError } = await supabase
       .from('rooms')
       .select('*')
       .eq('code', cleanCode)
-      .eq('is_active', true)
       .single();
 
     if (roomError || !room) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         error: 'Room not found',
-        details: 'No active room found with this code' 
+        details: 'No room found with this code'
       });
     }
 
-    // Check if room is full
+    // Check if room is full (count only connected participants)
     const countRes = await supabase
       .from('participants')
       .select('id', { count: 'exact' })
       .eq('room_id', room.id)
-      .is('left_at', null);
+      .eq('connection_status', 'connected');
 
     const participantCount = typeof countRes.count === 'number' ? countRes.count : 0;
 
     const maxParticipants = room.settings?.max_participants || 20;
-    if (participantCount && participantCount >= maxParticipants) {
-      return res.status(403).json({ 
-        error: 'Room is full',
-        details: `Maximum ${maxParticipants} participants allowed` 
-      });
-    }
 
-    // Check if user is already in the room
+    // Check if user is already in the room (either connected or disconnected)
+    // Handle both authenticated users (by user_id) and anonymous users (by nickname)
+    let existingParticipant = null;
+
     if (user_id) {
-      const { data: existingParticipant } = await supabase
+      // Check for authenticated user
+      const { data } = await supabase
         .from('participants')
         .select('*')
         .eq('room_id', room.id)
         .eq('user_id', user_id)
-        .is('left_at', null)
         .single();
 
-      if (existingParticipant) {
-        // User is already in the room, just update their connection status
-        const { data: updatedParticipant, error: updateError } = await supabase
-          .from('participants')
-          .update({ connection_status: 'connected' })
-          .eq('id', existingParticipant.id)
-          .select()
-          .single();
+      existingParticipant = data;
+    } else if (nickname) {
+      // Check for anonymous user by nickname
+      const { data } = await supabase
+        .from('participants')
+        .select('*')
+        .eq('room_id', room.id)
+        .eq('nickname', nickname.trim())
+        .is('user_id', null)
+        .single();
 
-        if (updateError) {
-          console.error('Failed to update participant:', updateError);
-        }
-
-        return res.status(200).json({ 
-          room, 
-          participant: updatedParticipant || existingParticipant 
-        });
-      }
+      existingParticipant = data;
     }
 
-    // Check if nickname is already taken (for anonymous users)
+    if (existingParticipant) {
+      // User is reconnecting - update their connection status
+      console.log('[JOIN] Existing participant found, reconnecting:', existingParticipant.id);
+      const isHost = existingParticipant.user_id && existingParticipant.user_id === room.host_user_id;
+
+      const { data: updatedParticipant, error: updateError } = await supabase
+        .from('participants')
+        .update({
+          connection_status: 'connected',
+          disconnected_at: null,
+          reconnected_at: new Date().toISOString()
+        })
+        .eq('id', existingParticipant.id)
+        .select()
+        .single();
+
+      if (updateError) {
+        console.error('[JOIN] Failed to update participant:', updateError);
+        return res.status(500).json({
+          error: 'Failed to reconnect',
+          details: updateError.message
+        });
+      }
+
+      // If user is the host, mark room as active
+      if (isHost) {
+        console.log('[JOIN] Host reconnecting, marking room as active');
+        const { error: roomUpdateError } = await supabase
+          .from('rooms')
+          .update({ is_active: true })
+          .eq('id', room.id);
+
+        if (roomUpdateError) {
+          console.error('[JOIN] Error marking room as active:', roomUpdateError);
+        }
+      }
+
+      return res.status(200).json({
+        room: { ...room, is_active: isHost ? true : room.is_active },
+        participant: updatedParticipant,
+        reconnected: true
+      });
+    }
+
+    // New participant joining - check if room is full
+    if (participantCount >= maxParticipants) {
+      return res.status(403).json({
+        error: 'Room is full',
+        details: `Maximum ${maxParticipants} participants allowed`
+      });
+    }
+
+    // Check if nickname is already taken by a DIFFERENT connected participant
+    // (We already handled reconnection above, so this is only for conflicts)
     if (!user_id && nickname) {
       const { data: existingNickname } = await supabase
         .from('participants')
         .select('*')
         .eq('room_id', room.id)
         .eq('nickname', nickname.trim())
-        .is('left_at', null)
+        .is('user_id', null)
+        .eq('connection_status', 'connected')
         .single();
 
       if (existingNickname) {
-        return res.status(400).json({ 
+        return res.status(400).json({
           error: 'Nickname already taken',
-          details: 'Please choose a different name' 
+          details: 'Please choose a different name'
         });
       }
     }
@@ -170,6 +228,10 @@ export default async function handler(
         details: participantError.message 
       });
     }
+
+    // Trigger cleanup in background (fire-and-forget)
+    // This will clean up old/inactive rooms if it hasn't run in the last 2 minutes
+    triggerCleanup();
 
     // Return room and participant info
     return res.status(200).json({ room, participant });

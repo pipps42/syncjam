@@ -28,6 +28,7 @@ export interface CreateRoomResponse {
   host_user_id: string;
   created_at: string;
   is_active: boolean;
+  is_public: boolean;
   settings: {
     max_participants: number;
     allow_anonymous: boolean;
@@ -45,6 +46,7 @@ export interface JoinRoomResponse {
     host_user_id: string;
     created_at: string;
     is_active: boolean;
+    is_public: boolean;
     settings: {
       max_participants: number;
       allow_anonymous: boolean;
@@ -71,8 +73,9 @@ export interface ParticipantWithUser {
   nickname: string | null;
   is_host: boolean;
   joined_at: string;
-  left_at: string | null;
   connection_status: 'connected' | 'disconnected' | 'idle';
+  disconnected_at: string | null;
+  reconnected_at: string | null;
   auth_sessions: Array<{
     spotify_user: {
       id: string;

@@ -8,21 +8,42 @@ type ActiveTab = 'queue' | 'search' | 'participants' | 'chat';
 export function RoomView() {
   const { code } = useParams<{ code: string }>();
   const navigate = useNavigate();
-  const { currentRoom, participants, isHost, leaveRoom } = useRoom();
+  const { currentRoom, participants, isHost, leaveRoom, isLoading, error } = useRoom();
   const [showCopied, setShowCopied] = useState(false);
   const [activeTab, setActiveTab] = useState<ActiveTab>('queue');
 
   useEffect(() => {
+    console.log('[ROOMVIEW] useEffect triggered - code:', code, 'currentRoom:', currentRoom?.code);
+
+    // If no code in URL, redirect to home
     if (!code) {
+      console.log('[ROOMVIEW] No code, navigating to home');
       navigate('/');
       return;
     }
 
-    // Load room data if not already loaded
+    // If currentRoom doesn't match the code in URL, redirect to home
+    // The ONLY way to legitimately enter a room is through:
+    // 1. Create Room -> sets currentRoom and navigates
+    // 2. Join Room -> sets currentRoom and navigates
+    // 3. Go to Room (MyRoomBanner) -> calls reconnectToRoom and navigates
+    // On refresh or after leaving, currentRoom is null -> redirect to home
     if (!currentRoom || currentRoom.code !== code) {
-      console.log('Loading room:', code);
+      console.log('[ROOMVIEW] No valid currentRoom for this code, redirecting to home');
+      navigate('/');
+      return;
     }
+
+    console.log('[ROOMVIEW] Room loaded successfully:', currentRoom.code);
   }, [code, currentRoom, navigate]);
+
+  // Redirect to home when room becomes null (e.g., terminated by host)
+  useEffect(() => {
+    if (!currentRoom && code) {
+      console.log('[ROOMVIEW] Room was cleared/terminated, redirecting to home');
+      navigate('/');
+    }
+  }, [currentRoom, code, navigate]);
 
   async function handleLeaveRoom() {
     try {
@@ -47,7 +68,16 @@ export function RoomView() {
     }
   }
 
-  if (!currentRoom) {
+  if (error) {
+    return (
+      <div className="room-loading">
+        <p style={{ color: 'red' }}>{error}</p>
+        <button onClick={() => navigate('/')}>Go Home</button>
+      </div>
+    );
+  }
+
+  if (isLoading || !currentRoom) {
     return (
       <div className="room-loading">
         <div className="spinner"></div>
@@ -56,8 +86,9 @@ export function RoomView() {
     );
   }
 
-  const activeParticipants = participants.filter(p => !p.left_at);
-  const connectedCount = activeParticipants.filter(p => p.connection_status === 'connected').length;
+  // participants are already filtered by connection_status = 'connected' in loadParticipants
+  const activeParticipants = participants;
+  const connectedCount = participants.filter(p => p.connection_status === 'connected').length;
 
   return (
     <div className="room-view-mobile">
@@ -89,6 +120,19 @@ export function RoomView() {
           </button>
         </div>
       </header>
+
+      {/* Inactive Room Warning Banner - shown only to guests when host disconnects */}
+      {!currentRoom.is_active && !isHost && (
+        <div className="inactive-room-banner">
+          <div className="banner-icon">⚠️</div>
+          <div className="banner-content">
+            <h3 className="banner-title">Host Disconnected</h3>
+            <p className="banner-message">
+              The host has left the room. You can wait for them to return or leave the room.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Main Content Area with Tab Switching */}
       <main className="room-main-content">

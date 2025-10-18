@@ -1,6 +1,20 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
-import { validateRoomName, type CreateRoomRequestBody } from '../types/requests.js';
+import { validateRoomName, type CreateRoomRequestBody } from '../types/requests';
+
+/**
+ * Helper function to trigger cleanup in background
+ * Fire-and-forget - doesn't wait for response
+ */
+function triggerCleanup() {
+  const cleanupUrl = process.env.VERCEL_URL
+    ? `https://${process.env.VERCEL_URL}/api/rooms/cleanup`
+    : 'http://localhost:3000/api/rooms/cleanup';
+
+  fetch(cleanupUrl, { method: 'POST' })
+    .then(() => console.log('[CREATE] Cleanup triggered'))
+    .catch(err => console.error('[CREATE] Cleanup trigger failed:', err));
+}
 
 /**
  * Vercel Serverless Function: Create a new room
@@ -19,7 +33,7 @@ export default async function handler(
   }
 
   try {
-    const { name, host_user_id } = req.body as CreateRoomRequestBody;
+    const { name, host_user_id, is_public } = req.body as CreateRoomRequestBody;
 
     // Validate input
     if (!name || !host_user_id) {
@@ -57,16 +71,36 @@ export default async function handler(
       .single();
 
     if (sessionError || !session) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         error: 'User not found',
-        details: 'Please login with Spotify first' 
+        details: 'Please login with Spotify first'
       });
     }
 
     if (!session.is_premium) {
-      return res.status(403).json({ 
+      return res.status(403).json({
         error: 'Premium required',
-        details: 'Only Spotify Premium users can host rooms' 
+        details: 'Only Spotify Premium users can host rooms'
+      });
+    }
+
+    // Check if user already has an active room (limit: 1 room per host)
+    const { data: existingRoom, error: existingRoomError } = await supabase
+      .from('rooms')
+      .select('id, code, name, is_active')
+      .eq('host_user_id', host_user_id)
+      .single();
+
+    if (existingRoom) {
+      return res.status(409).json({
+        error: 'Room already exists',
+        details: 'You can only host one room at a time. Please close your existing room first.',
+        existing_room: {
+          id: existingRoom.id,
+          code: existingRoom.code,
+          name: existingRoom.name,
+          is_active: existingRoom.is_active
+        }
       });
     }
 
@@ -95,6 +129,7 @@ export default async function handler(
         name: name.trim(),
         host_user_id,
         is_active: true,
+        is_public: is_public !== undefined ? is_public : true, // default to public
         settings: defaultSettings
       })
       .select()
@@ -109,6 +144,10 @@ export default async function handler(
     }
 
     // The host will be automatically added as a participant by the database trigger
+
+    // Trigger cleanup in background (fire-and-forget)
+    // This will clean up old/inactive rooms if it hasn't run in the last 2 minutes
+    triggerCleanup();
 
     return res.status(201).json(room);
   } catch (error) {
