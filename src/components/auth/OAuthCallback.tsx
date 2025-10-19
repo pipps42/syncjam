@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
 import { validateOAuthState, exchangeCodeForTokens } from '../../lib/spotify';
 import { saveSession } from '../../lib/auth';
 import type { OAuthCallbackParams, SpotifyUser } from '../../types';
@@ -7,6 +8,7 @@ import './OAuthCallback.css';
 
 export function OAuthCallback() {
   const navigate = useNavigate();
+  const { loadSession } = useAuth();
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [errorMessage, setErrorMessage] = useState<string>('');
 
@@ -71,6 +73,9 @@ export function OAuthCallback() {
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       });
+
+      // Reload session in AuthContext so user appears logged in immediately
+      await loadSession();
 
       setStatus('success');
 

@@ -41,6 +41,7 @@ export interface AuthContextValue {
   login: () => void;
   logout: () => void;
   refreshTokens: () => Promise<void>;
+  loadSession: () => Promise<void>;
 }
 
 export interface OAuthCallbackParams {

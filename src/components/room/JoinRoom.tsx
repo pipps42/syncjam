@@ -28,6 +28,32 @@ export function JoinRoom() {
   // If user is not authenticated, they need to provide a nickname
   const isAnonymous = !session;
 
+  // Auto-join if user is authenticated and has a code in URL
+  useEffect(() => {
+    const codeFromUrl = searchParams.get('code');
+
+    if (!codeFromUrl || isAnonymous || isJoining) return;
+
+    const cleaned = codeFromUrl.toUpperCase().replace(/[^A-Z0-9]/g, '');
+
+    if (cleaned.length === 6 && session) {
+      // Authenticated user with valid code - auto join
+      console.log('[JOIN_ROOM] Auto-joining authenticated user to room:', cleaned);
+      setIsJoining(true);
+      setError(null);
+
+      joinRoom(cleaned, undefined)
+        .then(() => {
+          navigate(`/room/${cleaned}`);
+        })
+        .catch((err) => {
+          console.error('[JOIN_ROOM] Auto-join failed:', err);
+          setError(err instanceof Error ? err.message : 'Failed to join room');
+          setIsJoining(false);
+        });
+    }
+  }, [searchParams, session, isAnonymous, isJoining, joinRoom, navigate]);
+
   async function handleJoinRoom(e: React.FormEvent) {
     e.preventDefault();
 

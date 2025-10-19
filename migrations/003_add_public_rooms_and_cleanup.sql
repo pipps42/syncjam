@@ -68,17 +68,16 @@ SELECT
   r.created_at,
   r.is_active,
   r.is_public,
-  u.id AS host_id,
-  u.email AS host_email,
-  u.raw_user_meta_data->>'display_name' AS host_display_name,
-  u.raw_user_meta_data->>'avatar_url' AS host_avatar_url,
+  s.user_id AS host_id,
+  s.spotify_user->>'display_name' AS host_display_name,
+  s.spotify_user->'images'->0->>'url' AS host_avatar_url,
   COUNT(DISTINCT p.id) FILTER (WHERE p.connection_status = 'connected') AS participant_count
 FROM public.rooms r
-LEFT JOIN auth.users u ON r.host_user_id = u.id::text
+LEFT JOIN public.auth_sessions s ON r.host_user_id = s.user_id
 LEFT JOIN public.participants p ON r.id = p.room_id
 WHERE r.is_active = true AND r.is_public = true
 GROUP BY r.id, r.code, r.name, r.host_user_id, r.created_at, r.is_active, r.is_public,
-         u.id, u.email, u.raw_user_meta_data;
+         s.user_id, s.spotify_user;
 
 COMMENT ON VIEW public.public_rooms_view IS
   'Public view of active public rooms with host info and participant count';
