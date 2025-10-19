@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useRoom } from '../contexts/RoomContext';
+import { Button, Badge } from './common';
+import { Crown, Users, DoorOpen } from 'lucide-react';
 import './MyRoomBanner.css';
 
 interface MyRoomData {
@@ -136,15 +138,15 @@ export function MyRoomBanner() {
     <div className={`my-room-banner ${room.is_active ? 'active' : 'inactive'}`}>
       <div className="banner-content">
         <div className="banner-icon">
-          <span>👑</span>
+          <Crown size={32} />
         </div>
 
         <div className="banner-info">
           <div className="banner-header">
             <h3 className="banner-title">Your Hosted Room</h3>
-            <span className={`status-badge ${room.is_active ? 'active' : 'inactive'}`}>
+            <Badge variant={room.is_active ? 'success' : 'error'} size="sm">
               {room.is_active ? 'Active' : 'Inactive'}
-            </span>
+            </Badge>
           </div>
 
           <div className="room-details">
@@ -155,27 +157,30 @@ export function MyRoomBanner() {
               Code: <strong className="code-highlight">{room.code}</strong>
             </span>
             <span className="detail-item">
-              <span className="participant-icon">👥</span>
+              <Users size={16} />
               {room.participant_count} {room.participant_count === 1 ? 'participant' : 'participants'}
             </span>
           </div>
         </div>
 
         <div className="banner-actions">
-          <button
-            className="go-to-room-button"
+          <Button
+            variant="primary"
             onClick={handleGoToRoom}
             disabled={isReconnecting}
+            isLoading={isReconnecting}
           >
-            {isReconnecting ? 'Connecting...' : 'Go to Room'}
-          </button>
-          <button
-            className="terminate-button"
+            Go to Room
+          </Button>
+          <Button
+            variant="danger"
             onClick={handleTerminateRoom}
             disabled={isTerminating || isReconnecting}
+            isLoading={isTerminating}
+            icon={<DoorOpen size={16} />}
           >
-            {isTerminating ? 'Terminating...' : 'Terminate'}
-          </button>
+            Terminate
+          </Button>
         </div>
       </div>
     </div>

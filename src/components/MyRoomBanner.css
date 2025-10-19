@@ -1,12 +1,27 @@
+/* My Room Banner - Dark Theme */
+
 .my-room-banner {
   width: 100%;
-  margin-bottom: 2rem;
-  padding: 1.5rem;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-radius: 1rem;
-  box-shadow: 0 8px 24px rgba(102, 126, 234, 0.25);
-  border: 2px solid rgba(255, 255, 255, 0.2);
+  margin-bottom: var(--space-8);
+  padding: var(--space-6);
+  background: linear-gradient(135deg, var(--primary-cyan) 0%, var(--primary-magenta) 100%);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xl);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   animation: slideIn 0.3s ease-out;
+  position: relative;
+  overflow: hidden;
+}
+
+.my-room-banner::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, rgba(0, 217, 255, 0.1) 0%, rgba(255, 0, 110, 0.1) 100%);
+  pointer-events: none;
 }
 
 @keyframes slideIn {
@@ -21,27 +36,30 @@
 }
 
 .my-room-banner.inactive {
-  background: linear-gradient(135deg, #64748b 0%, #475569 100%);
-  box-shadow: 0 8px 24px rgba(100, 116, 139, 0.2);
+  background: linear-gradient(135deg, var(--bg-elevated) 0%, var(--bg-dark) 100%);
+  border-color: var(--border-color);
 }
 
 .banner-content {
   display: flex;
   align-items: center;
-  gap: 1.5rem;
+  gap: var(--space-6);
+  position: relative;
+  z-index: 1;
 }
 
 .banner-icon {
   flex-shrink: 0;
-  width: 3.5rem;
-  height: 3.5rem;
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 1rem;
+  width: 64px;
+  height: 64px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: var(--radius-lg);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.75rem;
+  color: white;
   backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .banner-info {
@@ -52,114 +70,54 @@
 .banner-header {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  margin-bottom: 0.75rem;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+  flex-wrap: wrap;
 }
 
 .banner-title {
-  font-size: 1.25rem;
-  font-weight: 700;
+  font-size: var(--text-xl);
+  font-weight: var(--font-bold);
   color: white;
   margin: 0;
-}
-
-.status-badge {
-  display: inline-block;
-  padding: 0.25rem 0.75rem;
-  background: rgba(255, 255, 255, 0.2);
-  color: white;
-  font-size: 0.75rem;
-  font-weight: 600;
-  border-radius: 0.5rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  backdrop-filter: blur(10px);
-}
-
-.status-badge.active {
-  background: rgba(29, 185, 84, 0.9);
-}
-
-.status-badge.inactive {
-  background: rgba(239, 68, 68, 0.9);
+  letter-spacing: -0.01em;
 }
 
 .room-details {
   display: flex;
   align-items: center;
-  gap: 1.5rem;
+  gap: var(--space-4);
   flex-wrap: wrap;
 }
 
 .detail-item {
-  color: rgba(255, 255, 255, 0.9);
-  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.95);
+  font-size: var(--text-sm);
   display: flex;
   align-items: center;
-  gap: 0.25rem;
+  gap: var(--space-2);
+  font-weight: var(--font-medium);
 }
 
 .room-name-detail {
-  font-size: 1rem;
+  font-size: var(--text-base);
 }
 
 .code-highlight {
-  font-family: 'Courier New', monospace;
+  font-family: var(--font-mono);
   background: rgba(255, 255, 255, 0.2);
-  padding: 0.125rem 0.5rem;
-  border-radius: 0.25rem;
-  font-weight: 700;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-md);
+  font-weight: var(--font-bold);
   color: white;
-}
-
-.participant-icon {
-  font-size: 1rem;
+  letter-spacing: 0.1em;
+  backdrop-filter: blur(10px);
 }
 
 .banner-actions {
   display: flex;
-  gap: 0.75rem;
+  gap: var(--space-3);
   flex-shrink: 0;
-}
-
-.go-to-room-button,
-.terminate-button {
-  padding: 0.75rem 1.5rem;
-  border: none;
-  border-radius: 0.75rem;
-  font-weight: 600;
-  font-size: 0.875rem;
-  cursor: pointer;
-  transition: all 0.2s;
-  white-space: nowrap;
-}
-
-.go-to-room-button {
-  background: white;
-  color: #667eea;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.go-to-room-button:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-
-.terminate-button {
-  background: rgba(255, 255, 255, 0.2);
-  color: white;
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-}
-
-.terminate-button:hover:not(:disabled) {
-  background: rgba(239, 68, 68, 0.9);
-  border-color: rgba(239, 68, 68, 0.9);
-}
-
-.terminate-button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
 }
 
 /* Responsive design */
@@ -168,6 +126,7 @@
     flex-direction: column;
     align-items: stretch;
     text-align: center;
+    gap: var(--space-4);
   }
 
   .banner-icon {
@@ -176,41 +135,42 @@
 
   .banner-header {
     flex-direction: column;
-    gap: 0.5rem;
+    gap: var(--space-2);
+    align-items: center;
   }
 
   .room-details {
     justify-content: center;
-    gap: 1rem;
+    gap: var(--space-3);
   }
 
   .banner-actions {
     flex-direction: column;
-    gap: 0.5rem;
-  }
-
-  .go-to-room-button,
-  .terminate-button {
-    width: 100%;
+    gap: var(--space-2);
   }
 }
 
 @media (max-width: 480px) {
   .my-room-banner {
-    padding: 1rem;
+    padding: var(--space-4);
+  }
+
+  .banner-icon {
+    width: 56px;
+    height: 56px;
   }
 
   .banner-title {
-    font-size: 1rem;
+    font-size: var(--text-lg);
   }
 
   .detail-item {
-    font-size: 0.8125rem;
+    font-size: var(--text-xs);
   }
 
   .room-details {
     flex-direction: column;
     align-items: center;
-    gap: 0.5rem;
+    gap: var(--space-2);
   }
 }

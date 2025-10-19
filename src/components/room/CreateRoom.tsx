@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useRoom } from '../../contexts/RoomContext';
+import { Button } from '../common';
+import { Link, Music, Users, Headphones, AlertTriangle, X } from 'lucide-react';
 import './CreateRoom.css';
 
 export function CreateRoom() {
@@ -64,41 +66,35 @@ export function CreateRoom() {
 
           {!session?.is_premium && (
             <div className="premium-warning">
-              <span className="warning-icon">⚠️</span>
+              <AlertTriangle size={20} />
               <p>You need Spotify Premium to host rooms</p>
             </div>
           )}
 
           {error && (
             <div className="error-message">
-              <span className="error-icon">✕</span>
+              <X size={20} />
               <p>{error}</p>
             </div>
           )}
 
           <div className="form-actions">
-            <button
+            <Button
               type="button"
-              className="button-secondary"
+              variant="secondary"
               onClick={() => navigate('/')}
               disabled={isCreating}
             >
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
-              className="button-primary"
+              variant="primary"
               disabled={isCreating || !session?.is_premium}
+              isLoading={isCreating}
             >
-              {isCreating ? (
-                <>
-                  <span className="spinner-small"></span>
-                  Creating...
-                </>
-              ) : (
-                'Create Room'
-              )}
-            </button>
+              Create Room
+            </Button>
           </div>
         </form>
 
@@ -106,19 +102,19 @@ export function CreateRoom() {
           <h3>Your room will have:</h3>
           <ul>
             <li>
-              <span className="feature-icon">🔗</span>
+              <Link size={20} className="feature-icon" />
               <span>Unique 6-character code for easy sharing</span>
             </li>
             <li>
-              <span className="feature-icon">🎵</span>
+              <Music size={20} className="feature-icon" />
               <span>Synchronized playback for all participants</span>
             </li>
             <li>
-              <span className="feature-icon">👥</span>
+              <Users size={20} className="feature-icon" />
               <span>Support for up to 20 participants</span>
             </li>
             <li>
-              <span className="feature-icon">🎧</span>
+              <Headphones size={20} className="feature-icon" />
               <span>Audio streaming for non-Premium guests</span>
             </li>
           </ul>

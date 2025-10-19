@@ -1,6 +1,17 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useRoom } from '../../contexts/RoomContext';
+import { Avatar, Badge } from '../common';
+import {
+  Crown,
+  Share2,
+  X,
+  AlertTriangle,
+  Music,
+  Search,
+  Users,
+  MessageCircle
+} from 'lucide-react';
 import './RoomViewMobile.css';
 
 type ActiveTab = 'queue' | 'search' | 'participants' | 'chat';
@@ -102,21 +113,21 @@ export function RoomView() {
         </div>
         <div className="room-header-actions">
           {isHost && (
-            <span className="host-badge-small">👑</span>
+            <Crown size={20} className="host-badge-small" />
           )}
           <button
             className="share-button-icon"
             onClick={copyShareLink}
             title="Share room"
           >
-            🔗
+            <Share2 size={18} />
           </button>
           <button
             className="leave-button-icon"
             onClick={handleLeaveRoom}
             title="Leave room"
           >
-            ✕
+            <X size={20} />
           </button>
         </div>
       </header>
@@ -124,7 +135,7 @@ export function RoomView() {
       {/* Inactive Room Warning Banner - shown only to guests when host disconnects */}
       {!currentRoom.is_active && !isHost && (
         <div className="inactive-room-banner">
-          <div className="banner-icon">⚠️</div>
+          <AlertTriangle size={24} className="banner-icon" />
           <div className="banner-content">
             <h3 className="banner-title">Host Disconnected</h3>
             <p className="banner-message">
@@ -140,7 +151,7 @@ export function RoomView() {
         {activeTab === 'queue' && (
           <div className="tab-content queue-content">
             <div className="empty-state">
-              <span className="empty-icon">🎵</span>
+              <Music size={64} className="empty-icon" />
               <h2>Queue is empty</h2>
               <p>Search for songs to add them to the queue</p>
             </div>
@@ -158,7 +169,7 @@ export function RoomView() {
               />
             </div>
             <div className="empty-state">
-              <span className="empty-icon">🔍</span>
+              <Search size={64} className="empty-icon" />
               <p>Search for music to add to the queue</p>
             </div>
           </div>
@@ -178,22 +189,22 @@ export function RoomView() {
                   key={participant.id}
                   className={`participant-item-mobile ${participant.connection_status}`}
                 >
-                  <div className="participant-avatar">
-                    {participant.spotify_user?.display_name?.[0]?.toUpperCase() ||
-                     participant.nickname?.[0]?.toUpperCase() ||
-                     '?'}
-                  </div>
+                  <Avatar
+                    src={participant.spotify_user?.images?.[0]?.url}
+                    name={participant.nickname || participant.spotify_user?.display_name || 'Anonymous'}
+                    size="md"
+                  />
                   <div className="participant-details">
                     <div className="participant-name-row">
                       <span className="participant-name">
                         {participant.nickname || participant.spotify_user?.display_name || 'Anonymous'}
                       </span>
                       {participant.is_host && (
-                        <span className="host-badge-inline">👑</span>
+                        <Crown size={14} className="host-badge-inline" />
                       )}
                     </div>
                     {participant.spotify_user?.product === 'premium' && (
-                      <span className="premium-badge-mobile">Premium</span>
+                      <Badge variant="premium" size="sm">Premium</Badge>
                     )}
                   </div>
                   <div className={`status-dot ${participant.connection_status}`}></div>
@@ -214,7 +225,7 @@ export function RoomView() {
           <div className="tab-content chat-content">
             <div className="chat-messages">
               <div className="empty-state">
-                <span className="empty-icon">💬</span>
+                <MessageCircle size={64} className="empty-icon" />
                 <p>No messages yet. Start the conversation!</p>
               </div>
             </div>
@@ -236,21 +247,21 @@ export function RoomView() {
           className={`nav-tab ${activeTab === 'queue' ? 'active' : ''}`}
           onClick={() => setActiveTab('queue')}
         >
-          <span className="nav-icon">🎵</span>
+          <Music size={24} className="nav-icon" />
           <span className="nav-label">Queue</span>
         </button>
         <button
           className={`nav-tab ${activeTab === 'search' ? 'active' : ''}`}
           onClick={() => setActiveTab('search')}
         >
-          <span className="nav-icon">🔍</span>
+          <Search size={24} className="nav-icon" />
           <span className="nav-label">Search</span>
         </button>
         <button
           className={`nav-tab ${activeTab === 'participants' ? 'active' : ''}`}
           onClick={() => setActiveTab('participants')}
         >
-          <span className="nav-icon">👥</span>
+          <Users size={24} className="nav-icon" />
           <span className="nav-label">Participants</span>
           {connectedCount > 0 && (
             <span className="nav-badge">{connectedCount}</span>
@@ -260,7 +271,7 @@ export function RoomView() {
           className={`nav-tab ${activeTab === 'chat' ? 'active' : ''}`}
           onClick={() => setActiveTab('chat')}
         >
-          <span className="nav-icon">💬</span>
+          <MessageCircle size={24} className="nav-icon" />
           <span className="nav-label">Chat</span>
         </button>
       </nav>
