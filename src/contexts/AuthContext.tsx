@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react';
 import { supabase } from '../lib/supabase';
 import { initiateSpotifyLogin } from '../lib/spotify';
 import type { AuthSession, AuthContextValue } from '../types';
@@ -13,13 +13,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [session, setSession] = useState<AuthSession | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    // Check for existing session on mount
-    loadSession();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  async function loadSession() {
+  const loadSession = useCallback(async () => {
     try {
       const userId = localStorage.getItem('syncjam_user_id');
 
@@ -48,7 +42,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       if (expiresAt <= now) {
         // Token expired, need to refresh
-        await refreshTokens();
+        // Note: refreshTokens will be called later, but we need session to be set first
+        setSession({
+          user_id: data.user_id,
+          spotify_user: data.spotify_user as AuthSession['spotify_user'],
+          access_token: data.access_token,
+          refresh_token: data.refresh_token,
+          expires_at: data.expires_at,
+          is_premium: data.is_premium,
+          created_at: data.created_at,
+          updated_at: data.updated_at,
+        });
       } else {
         setSession({
           user_id: data.user_id,
@@ -66,7 +70,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
     } finally {
       setIsLoading(false);
     }
-  }
+  }, []); // No dependencies - stable function
+
+  useEffect(() => {
+    // Check for existing session on mount
+    loadSession();
+  }, [loadSession]);
 
   async function refreshTokens() {
     try {
@@ -132,6 +141,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     login,
     logout,
     refreshTokens,
+    loadSession, // Expose loadSession so it can be called after OAuth callback
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
