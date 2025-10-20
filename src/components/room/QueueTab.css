@@ -1,7 +1,7 @@
 /* QueueTab Component - Dark Theme */
 
 .queue-tab {
-  height: 100%;
+  flex: 1;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -14,6 +14,7 @@
   padding: var(--space-4);
   border-bottom: 1px solid var(--border-color);
   background: var(--bg-elevated);
+  flex-shrink: 0;
 }
 
 .queue-header h3 {
@@ -31,19 +32,25 @@
 .queue-list {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
   padding: var(--space-2);
 }
 
 .queue-item {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-3);
+  display: grid;
+  grid-template-columns: auto auto 72px 1fr auto;
+  grid-template-rows: auto 1fr;
+  column-gap: var(--space-1);
+  row-gap: 0;
+  padding: var(--space-2) var(--space-3);
   background: var(--bg-elevated);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
   margin-bottom: var(--space-2);
   transition: var(--transition-all);
+  align-items: center;
+  min-height: 88px;
 }
 
 .queue-item:hover {
@@ -56,6 +63,13 @@
   color: var(--text-disabled);
   display: flex;
   align-items: center;
+  grid-column: 1;
+  grid-row: 1 / 3;
+  align-self: center;
+  width: 20px;
+  justify-content: center;
+  padding: 0;
+  margin: 0;
 }
 
 .queue-item-drag-handle:active {
@@ -66,17 +80,25 @@
   font-size: var(--text-sm);
   font-weight: var(--font-bold);
   color: var(--text-secondary);
-  min-width: 24px;
+  width: 20px;
   text-align: center;
+  grid-column: 2;
+  grid-row: 1 / 3;
+  align-self: center;
+  padding: 0;
+  margin: 0;
 }
 
 .queue-item-album {
-  width: 48px;
-  height: 48px;
+  width: 72px;
+  height: 72px;
   border-radius: var(--radius-md);
   overflow: hidden;
   flex-shrink: 0;
   background: var(--bg-darker);
+  grid-column: 3;
+  grid-row: 1 / 3;
+  align-self: center;
 }
 
 .queue-item-album img {
@@ -95,23 +117,46 @@
 }
 
 .queue-item-info {
-  flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
+  grid-column: 4;
+  grid-row: 1 / 3;
+  align-self: center;
 }
 
 .queue-item-name {
   font-size: var(--text-sm);
   font-weight: var(--font-semibold);
   color: var(--text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  overflow: hidden;
+}
+
+.queue-item-name.has-overflow {
+  mask-image: linear-gradient(to right, black 90%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, black 90%, transparent 100%);
+}
+
+.queue-item-name > span {
+  white-space: nowrap;
+  display: inline-block;
+}
+
+.queue-item-name.has-overflow > span {
+  animation: marquee-title 6s linear infinite;
+}
+
+@keyframes marquee-title {
+  0%, 20% {
+    transform: translateX(0);
+  }
+  20%, 100% {
+    transform: translateX(calc(-100% + 64px));
+  }
 }
 
 .queue-item-artist {
@@ -119,79 +164,52 @@
   color: var(--text-secondary);
   white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis;
+  display: block;
+  position: relative;
+}
+
+.queue-item-artist.has-overflow {
+  mask-image: linear-gradient(to right, black 90%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, black 90%, transparent 100%);
+}
+
+.queue-item-artist > span {
+  display: inline-block;
+}
+
+.queue-item-artist.has-overflow > span {
+  animation: marquee-artist 6s linear infinite;
+}
+
+@keyframes marquee-artist {
+  0%, 20% {
+    transform: translateX(0);
+  }
+  20%, 100% {
+    transform: translateX(calc(-100% + 64px));
+  }
 }
 
 .queue-item-meta {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
-  font-size: var(--text-xs);
-  color: var(--text-disabled);
-}
-
-.queue-item-duration::before {
-  content: '•';
-  margin-right: var(--space-3);
-}
-
-.queue-item-added-by {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
+  justify-content: center;
+  grid-column: 5;
+  grid-row: 1;
+  align-self: start;
+  padding-top: var(--space-1);
 }
 
 .added-by-avatar {
-  width: 16px;
-  height: 16px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   object-fit: cover;
+  border: 2px solid var(--border-color);
 }
 
 .added-by-avatar-placeholder {
   color: var(--text-disabled);
-}
-
-.queue-item-votes {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.vote-button {
-  background: none;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  padding: var(--space-2);
-  cursor: pointer;
-  color: var(--text-secondary);
-  transition: var(--transition-all);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.vote-button:hover {
-  background: var(--bg-hover);
-  color: var(--text-primary);
-}
-
-.vote-button.vote-up:hover {
-  border-color: var(--success);
-  color: var(--success);
-}
-
-.vote-button.vote-down:hover {
-  border-color: var(--error);
-  color: var(--error);
-}
-
-.vote-count {
-  font-size: var(--text-sm);
-  font-weight: var(--font-bold);
-  color: var(--text-primary);
-  min-width: 24px;
-  text-align: center;
 }
 
 .queue-item-remove {
@@ -205,6 +223,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  grid-column: 5;
+  grid-row: 2;
+  align-self: end;
+  padding-bottom: var(--space-1);
 }
 
 .queue-item-remove:hover {
@@ -233,30 +255,31 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: var(--space-4);
-  padding: var(--space-8);
+  min-height: 300px;
   text-align: center;
-}
-
-.queue-empty {
-  color: var(--text-secondary);
+  padding: var(--space-8) var(--space-4);
 }
 
 .queue-empty svg {
-  color: var(--text-disabled);
-  opacity: 0.5;
+  color: var(--primary-cyan);
+  opacity: 0.3;
+  margin-bottom: var(--space-4);
 }
 
 .queue-empty h3 {
-  margin: 0;
-  font-size: var(--text-lg);
+  margin: 0 0 var(--space-2) 0;
+  font-size: var(--text-xl);
+  font-weight: var(--font-bold);
   color: var(--text-primary);
+  letter-spacing: -0.01em;
 }
 
 .queue-empty p {
   margin: 0;
+  color: var(--text-secondary);
   font-size: var(--text-sm);
   max-width: 300px;
+  line-height: var(--leading-relaxed);
 }
 
 .spinner {
@@ -291,9 +314,14 @@
 
 /* Tablet and Desktop */
 @media (min-width: 768px) {
+  .queue-item {
+    grid-template-columns: auto auto 64px 1fr auto;
+    column-gap: var(--space-2);
+  }
+
   .queue-item-album {
-    width: 56px;
-    height: 56px;
+    width: 64px;
+    height: 64px;
   }
 
   .queue-item-name {

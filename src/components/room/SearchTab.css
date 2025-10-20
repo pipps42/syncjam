@@ -3,14 +3,13 @@
 .search-tab {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  flex: 1;
   overflow: hidden;
 }
 
 /* Search Input */
 .search-input-wrapper {
-  position: sticky;
-  top: 0;
+  flex-shrink: 0;
   background: var(--bg-dark);
   padding: var(--space-4);
   border-bottom: 1px solid var(--border-color);
@@ -26,14 +25,14 @@
 
 .search-icon {
   position: absolute;
-  left: var(--space-4);
+  left: var(--space-3);
   color: var(--text-disabled);
   pointer-events: none;
 }
 
 .search-input {
   width: 100%;
-  padding: var(--space-3) var(--space-4) var(--space-3) calc(var(--space-4) + 32px);
+  padding: var(--space-3) var(--space-4) var(--space-3) calc(var(--space-3) + 20px + var(--space-2));
   border: 2px solid var(--border-color);
   border-radius: var(--radius-lg);
   font-size: var(--text-base);

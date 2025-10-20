@@ -9,7 +9,6 @@ export interface QueueItem {
   added_by: string | null;
   added_by_nickname: string | null;
   position: number;
-  votes: number;
   metadata: {
     name: string;
     artists: string[];

@@ -1,9 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Music, ThumbsUp, ThumbsDown, Trash2, GripVertical, User } from 'lucide-react';
+import { Music, Trash2, GripVertical, User } from 'lucide-react';
 import type { QueueItem } from '../../types/queue';
 import type { Participant } from '../../types/room';
-import { formatDuration } from '../../types/spotify';
 import { useParticipantsWithUser } from '../../hooks/useParticipantsWithUser';
 import './QueueTab.css';
 
@@ -13,6 +12,34 @@ interface QueueTabProps {
   currentUserId?: string | null;
   currentUserNickname?: string | null;
   participants: Participant[];
+}
+
+// Helper component to check text overflow and apply animation conditionally
+function QueueItemText({ text, className, badge }: { text: string; className: string; badge?: React.ReactNode }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const textRef = useRef<HTMLSpanElement>(null);
+  const [hasOverflow, setHasOverflow] = useState(false);
+
+  useEffect(() => {
+    const checkOverflow = () => {
+      if (containerRef.current && textRef.current) {
+        const containerWidth = containerRef.current.offsetWidth;
+        const textWidth = textRef.current.scrollWidth;
+        setHasOverflow(textWidth > containerWidth);
+      }
+    };
+
+    checkOverflow();
+    window.addEventListener('resize', checkOverflow);
+    return () => window.removeEventListener('resize', checkOverflow);
+  }, [text]);
+
+  return (
+    <div ref={containerRef} className={`${className} ${hasOverflow ? 'has-overflow' : ''}`}>
+      <span ref={textRef}>{text}</span>
+      {badge}
+    </div>
+  );
 }
 
 export function QueueTab({ roomId, isHost, currentUserId, currentUserNickname, participants }: QueueTabProps) {
@@ -75,7 +102,6 @@ export function QueueTab({ roomId, isHost, currentUserId, currentUserNickname, p
         .eq('room_id', roomId)
         .eq('played', false)
         .order('position', { ascending: true })
-        .order('votes', { ascending: false })
         .order('created_at', { ascending: true });
 
       if (fetchError) throw fetchError;
@@ -86,28 +112,6 @@ export function QueueTab({ roomId, isHost, currentUserId, currentUserNickname, p
       setError(err instanceof Error ? err.message : 'Failed to load queue');
     } finally {
       setIsLoading(false);
-    }
-  }
-
-  async function handleVote(itemId: string, increment: number) {
-    try {
-      const item = queueItems.find(q => q.id === itemId);
-      if (!item) return;
-
-      const { error } = await supabase
-        .from('queue_items')
-        .update({ votes: item.votes + increment })
-        .eq('id', itemId);
-
-      if (error) throw error;
-
-      // Optimistic update
-      setQueueItems(prev =>
-        prev.map(q => q.id === itemId ? { ...q, votes: q.votes + increment } : q)
-      );
-    } catch (err) {
-      console.error('[QueueTab] Failed to vote:', err);
-      alert('Failed to vote');
     }
   }
 
@@ -203,53 +207,26 @@ export function QueueTab({ roomId, isHost, currentUserId, currentUserNickname, p
             </div>
 
             <div className="queue-item-info">
-              <div className="queue-item-name">
-                {item.metadata.name}
-                {item.metadata.explicit && (
-                  <span className="explicit-badge">E</span>
-                )}
-              </div>
-              <div className="queue-item-artist">
-                {item.metadata.artistNames}
-              </div>
-              <div className="queue-item-meta">
-                <span className="queue-item-duration">
-                  {formatDuration(item.metadata.duration_ms)}
-                </span>
-                <span className="queue-item-added-by">
-                  {(() => {
-                    const userInfo = getParticipantInfo(item.added_by, item.added_by_nickname);
-                    return (
-                      <>
-                        {userInfo.avatarUrl ? (
-                          <img src={userInfo.avatarUrl} alt={userInfo.displayName} className="added-by-avatar" />
-                        ) : (
-                          <User size={14} className="added-by-avatar-placeholder" />
-                        )}
-                        <span>{userInfo.displayName}</span>
-                      </>
-                    );
-                  })()}
-                </span>
-              </div>
+              <QueueItemText
+                text={item.metadata.name}
+                className="queue-item-name"
+                badge={item.metadata.explicit ? <span className="explicit-badge">E</span> : undefined}
+              />
+              <QueueItemText
+                text={item.metadata.artistNames}
+                className="queue-item-artist"
+              />
             </div>
 
-            <div className="queue-item-votes">
-              <button
-                className="vote-button vote-up"
-                onClick={() => handleVote(item.id, 1)}
-                title="Upvote"
-              >
-                <ThumbsUp size={18} />
-              </button>
-              <span className="vote-count">{item.votes}</span>
-              <button
-                className="vote-button vote-down"
-                onClick={() => handleVote(item.id, -1)}
-                title="Downvote"
-              >
-                <ThumbsDown size={18} />
-              </button>
+            <div className="queue-item-meta">
+              {(() => {
+                const userInfo = getParticipantInfo(item.added_by, item.added_by_nickname);
+                return userInfo.avatarUrl ? (
+                  <img src={userInfo.avatarUrl} alt={userInfo.displayName} className="added-by-avatar" />
+                ) : (
+                  <User size={24} className="added-by-avatar-placeholder" />
+                );
+              })()}
             </div>
 
             {canRemoveTrack(item) && (

@@ -1,6 +1,6 @@
 -- Migration: Create queue_items table for track queue management
 -- Date: 2025-01-19
--- Description: Stores the queue of tracks for each room with voting and ordering
+-- Description: Stores the queue of tracks for each room with ordering
 
 -- Create queue_items table
 CREATE TABLE IF NOT EXISTS public.queue_items (
@@ -10,7 +10,6 @@ CREATE TABLE IF NOT EXISTS public.queue_items (
   added_by TEXT REFERENCES public.auth_sessions(user_id) ON DELETE SET NULL, -- Who added it (can be null for anonymous)
   added_by_nickname TEXT, -- For anonymous users
   position INTEGER NOT NULL DEFAULT 0, -- Position in queue (0 = next to play)
-  votes INTEGER NOT NULL DEFAULT 0, -- Vote count for democratic queue
   metadata JSONB NOT NULL DEFAULT '{}', -- Track metadata (name, artist, album, image, duration, etc.)
   played BOOLEAN NOT NULL DEFAULT false, -- Has this track been played?
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -18,9 +17,8 @@ CREATE TABLE IF NOT EXISTS public.queue_items (
 );
 
 -- Indexes for performance
-CREATE INDEX idx_queue_items_room_id ON public.queue_items(room_id);
-CREATE INDEX idx_queue_items_position ON public.queue_items(room_id, position) WHERE NOT played;
-CREATE INDEX idx_queue_items_votes ON public.queue_items(room_id, votes DESC) WHERE NOT played;
+CREATE INDEX IF NOT EXISTS idx_queue_items_room_id ON public.queue_items(room_id);
+CREATE INDEX IF NOT EXISTS idx_queue_items_position ON public.queue_items(room_id, position) WHERE NOT played;
 
 -- Updated_at trigger
 CREATE OR REPLACE FUNCTION update_queue_items_updated_at()
@@ -31,6 +29,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trigger_queue_items_updated_at ON public.queue_items;
 CREATE TRIGGER trigger_queue_items_updated_at
   BEFORE UPDATE ON public.queue_items
   FOR EACH ROW
@@ -100,28 +99,22 @@ CREATE POLICY "Owner or host can delete queue items"
 
 -- Participants can update queue items
 -- Host can update anything (reordering, marking as played, etc.)
--- Any connected participant can vote (update votes field)
+DROP POLICY IF EXISTS "Participants can update queue items" ON public.queue_items;
 CREATE POLICY "Participants can update queue items"
   ON public.queue_items
   FOR UPDATE
   USING (
-    -- Host can update anything
+    -- Host can update anything (reordering, marking as played, etc.)
     EXISTS (
       SELECT 1 FROM public.rooms r
       JOIN public.participants p ON p.room_id = r.id AND p.is_host = true
       WHERE r.id = queue_items.room_id
         AND p.connection_status = 'connected'
     )
-    OR
-    -- Any connected participant can vote
-    EXISTS (
-      SELECT 1 FROM public.participants p
-      WHERE p.room_id = queue_items.room_id
-        AND p.connection_status = 'connected'
-    )
   );
 
--- Create a view for active queue (not played, ordered by position/votes)
+-- Create a view for active queue (not played, ordered by position)
+DROP VIEW IF EXISTS public.active_queue;
 CREATE OR REPLACE VIEW public.active_queue AS
 SELECT
   qi.*,
@@ -137,10 +130,9 @@ SELECT
   ) AS added_by_user
 FROM public.queue_items qi
 WHERE qi.played = false
-ORDER BY qi.position ASC, qi.votes DESC, qi.created_at ASC;
+ORDER BY qi.position ASC, qi.created_at ASC;
 
 COMMENT ON TABLE public.queue_items IS 'Stores the queue of tracks for each room';
 COMMENT ON COLUMN public.queue_items.track_uri IS 'Spotify track URI';
 COMMENT ON COLUMN public.queue_items.position IS 'Position in queue (lower = plays sooner)';
-COMMENT ON COLUMN public.queue_items.votes IS 'Vote count for democratic queue ordering';
 COMMENT ON COLUMN public.queue_items.metadata IS 'Track metadata from Spotify (name, artists, album, image, duration, etc.)';

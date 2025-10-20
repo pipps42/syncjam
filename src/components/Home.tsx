@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { MyRoomBanner } from './MyRoomBanner';
 import { PublicRoomsList } from './PublicRoomsList';
-import { Avatar, Button } from './common';
+import { Avatar, Button, SpotifyIcon } from './common';
 import { Headphones, Users, LogOut } from 'lucide-react';
 import './Home.css';
 
@@ -62,8 +62,9 @@ export function Home() {
               variant="spotify"
               size="sm"
               onClick={() => navigate('/login')}
+              icon={<SpotifyIcon size={20} className="spotify-icon" />}
             >
-              Sign in with Spotify
+              Continue with Spotify
             </Button>
           )}
         </div>

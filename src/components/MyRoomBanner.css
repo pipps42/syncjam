@@ -4,24 +4,13 @@
   width: 100%;
   margin-bottom: var(--space-8);
   padding: var(--space-6);
-  background: linear-gradient(135deg, var(--primary-cyan) 0%, var(--primary-magenta) 100%);
+  background: linear-gradient(135deg, var(--bg-elevated) 0%, var(--bg-dark) 100%);
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-xl);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--border-color);
   animation: slideIn 0.3s ease-out;
   position: relative;
   overflow: hidden;
-}
-
-.my-room-banner::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(135deg, rgba(0, 217, 255, 0.1) 0%, rgba(255, 0, 110, 0.1) 100%);
-  pointer-events: none;
 }
 
 @keyframes slideIn {
@@ -35,50 +24,37 @@
   }
 }
 
-.my-room-banner.inactive {
-  background: linear-gradient(135deg, var(--bg-elevated) 0%, var(--bg-dark) 100%);
-  border-color: var(--border-color);
-}
-
 .banner-content {
   display: flex;
   align-items: center;
   gap: var(--space-6);
   position: relative;
-  z-index: 1;
-}
-
-.banner-icon {
-  flex-shrink: 0;
-  width: 64px;
-  height: 64px;
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: var(--radius-lg);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .banner-info {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
 }
 
 .banner-header {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
-  margin-bottom: var(--space-3);
-  flex-wrap: wrap;
+  gap: var(--space-2);
+  justify-content: center;
+}
+
+.banner-header svg {
+  color: var(--primary-cyan);
+  flex-shrink: 0;
 }
 
 .banner-title {
-  font-size: var(--text-xl);
-  font-weight: var(--font-bold);
-  color: white;
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--text-secondary);
   margin: 0;
   letter-spacing: -0.01em;
 }
@@ -86,32 +62,44 @@
 .room-details {
   display: flex;
   align-items: center;
-  gap: var(--space-4);
+  gap: var(--space-3);
   flex-wrap: wrap;
+  justify-content: center;
+}
+
+.room-name {
+  font-size: var(--text-2xl);
+  font-weight: var(--font-bold);
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+}
+
+.code-highlight {
+  font-family: var(--font-mono);
+  background: var(--bg-dark);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  font-weight: var(--font-bold);
+  color: var(--text-primary);
+  letter-spacing: 0.1em;
+  font-size: var(--text-lg);
+  border: 1px solid var(--border-color);
+}
+
+.room-meta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
 }
 
 .detail-item {
-  color: rgba(255, 255, 255, 0.95);
+  color: var(--text-secondary);
   font-size: var(--text-sm);
   display: flex;
   align-items: center;
   gap: var(--space-2);
   font-weight: var(--font-medium);
-}
-
-.room-name-detail {
-  font-size: var(--text-base);
-}
-
-.code-highlight {
-  font-family: var(--font-mono);
-  background: rgba(255, 255, 255, 0.2);
-  padding: var(--space-1) var(--space-3);
-  border-radius: var(--radius-md);
-  font-weight: var(--font-bold);
-  color: white;
-  letter-spacing: 0.1em;
-  backdrop-filter: blur(10px);
 }
 
 .banner-actions {
