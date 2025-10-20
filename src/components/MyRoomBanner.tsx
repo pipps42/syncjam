@@ -46,7 +46,7 @@ export function MyRoomBanner() {
     if (!session) return;
 
     try {
-      const response = await fetch(`/api/rooms/my-room?user_id=${session.user_id}`);
+      const response = await fetch(`/api/rooms?action=my-room&user_id=${session.user_id}`);
 
       if (!response.ok) {
         throw new Error('Failed to load your room');
@@ -74,7 +74,7 @@ export function MyRoomBanner() {
     setIsTerminating(true);
 
     try {
-      const response = await fetch('/api/rooms/terminate', {
+      const response = await fetch('/api/rooms?action=terminate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

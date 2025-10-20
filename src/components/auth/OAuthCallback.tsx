@@ -2,8 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { validateOAuthState, exchangeCodeForTokens } from '../../lib/spotify';
-import { saveSession } from '../../lib/auth';
-import type { OAuthCallbackParams, SpotifyUser } from '../../types';
+import type { OAuthCallbackParams } from '../../types';
 import './OAuthCallback.css';
 
 export function OAuthCallback() {
@@ -42,37 +41,13 @@ export function OAuthCallback() {
         throw new Error('Invalid OAuth state - possible CSRF attack');
       }
 
-      // Exchange code for tokens
+      // Exchange code for session (API handles everything server-side)
       setStatus('loading');
-      const tokens = await exchangeCodeForTokens(callbackParams.code);
+      const { session } = await exchangeCodeForTokens(callbackParams.code);
 
-      // Fetch user profile from Spotify
-      const userResponse = await fetch('https://api.spotify.com/v1/me', {
-        headers: {
-          Authorization: `Bearer ${tokens.access_token}`,
-        },
-      });
-
-      if (!userResponse.ok) {
-        throw new Error('Failed to fetch user profile');
-      }
-
-      const spotifyUser: SpotifyUser = await userResponse.json();
-
-      // Calculate token expiration
-      const expiresAt = new Date(Date.now() + tokens.expires_in * 1000).toISOString();
-
-      // Save session to Supabase
-      await saveSession({
-        user_id: spotifyUser.id,
-        spotify_user: spotifyUser,
-        access_token: tokens.access_token,
-        refresh_token: tokens.refresh_token,
-        expires_at: expiresAt,
-        is_premium: spotifyUser.product === 'premium',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      });
+      // Session is already saved in Supabase by the API
+      // Just save to localStorage for client-side access
+      localStorage.setItem('syncjam_user_id', session.user_id);
 
       // Reload session in AuthContext so user appears logged in immediately
       await loadSession();

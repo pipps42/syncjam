@@ -83,13 +83,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
       if (!userId || !session) return;
 
       // Call refresh token endpoint
-      const response = await fetch('/api/auth/refresh', {
+      const response = await fetch('/api/auth?action=refresh', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          user_id: userId,
           refresh_token: session.refresh_token,
         }),
       });

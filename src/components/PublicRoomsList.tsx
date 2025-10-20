@@ -38,7 +38,7 @@ export function PublicRoomsList() {
 
   async function loadPublicRooms() {
     try {
-      const response = await fetch('/api/rooms/list');
+      const response = await fetch('/api/rooms?action=list');
 
       if (!response.ok) {
         throw new Error('Failed to load rooms');
