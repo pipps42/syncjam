@@ -1,6 +1,22 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useRoom } from '../../contexts/RoomContext';
+import { useAuth } from '../../contexts/AuthContext';
+import { supabase } from '../../lib/supabase';
+import { Avatar, Badge } from '../common';
+import {
+  Crown,
+  Share2,
+  X,
+  AlertTriangle,
+  Music,
+  Search,
+  Users,
+  MessageCircle
+} from 'lucide-react';
+import { SearchTab } from './SearchTab';
+import { QueueTab } from './QueueTab';
+import type { SpotifyTrack } from '../../types/spotify';
 import './RoomViewMobile.css';
 
 type ActiveTab = 'queue' | 'search' | 'participants' | 'chat';
@@ -8,8 +24,10 @@ type ActiveTab = 'queue' | 'search' | 'participants' | 'chat';
 export function RoomView() {
   const { code } = useParams<{ code: string }>();
   const navigate = useNavigate();
+  const { session } = useAuth();
   const { currentRoom, participants, isHost, leaveRoom, isLoading, error } = useRoom();
   const [showCopied, setShowCopied] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
   const [activeTab, setActiveTab] = useState<ActiveTab>('queue');
 
   useEffect(() => {
@@ -48,6 +66,8 @@ export function RoomView() {
   async function handleLeaveRoom() {
     try {
       await leaveRoom();
+      // Clear guest nickname from localStorage when leaving
+      localStorage.removeItem('syncjam_guest_nickname');
       navigate('/');
     } catch (error) {
       console.error('Failed to leave room:', error);
@@ -61,10 +81,69 @@ export function RoomView() {
 
     try {
       await navigator.clipboard.writeText(shareUrl);
+      setToastMessage('Link copied to clipboard!');
       setShowCopied(true);
       setTimeout(() => setShowCopied(false), 2000);
     } catch (error) {
       console.error('Failed to copy:', error);
+    }
+  }
+
+  async function handleAddToQueue(track: SpotifyTrack) {
+    if (!currentRoom) return;
+
+    try {
+      // Get current max position
+      const { data: maxPosData } = await supabase
+        .from('queue_items')
+        .select('position')
+        .eq('room_id', currentRoom.id)
+        .eq('played', false)
+        .order('position', { ascending: false })
+        .limit(1);
+
+      const nextPosition = maxPosData && maxPosData.length > 0
+        ? maxPosData[0].position + 1
+        : 0;
+
+      // Get current user's nickname (only for anonymous users)
+      // Authenticated users don't have nickname - they use added_by field instead
+      const myNickname = !session ? localStorage.getItem('syncjam_guest_nickname') : null;
+
+      // Insert track into queue using Supabase Direct
+      const { error } = await supabase
+        .from('queue_items')
+        .insert({
+          room_id: currentRoom.id,
+          track_uri: track.uri,
+          added_by: session?.user_id || null,
+          added_by_nickname: myNickname,
+          position: nextPosition,
+          metadata: {
+            name: track.name,
+            artists: track.artists,
+            artistNames: track.artistNames,
+            album: track.album,
+            albumImage: track.albumImage,
+            duration_ms: track.duration_ms,
+            explicit: track.explicit,
+          },
+        });
+
+      if (error) {
+        console.error('[RoomView] Supabase error:', error);
+        throw new Error(error.message || 'Failed to add track to queue');
+      }
+
+      // Show success toast
+      setToastMessage(`Added "${track.name}" to queue`);
+      setShowCopied(true);
+      setTimeout(() => setShowCopied(false), 2000);
+
+      console.log('[RoomView] Track added to queue:', track.name);
+    } catch (error) {
+      console.error('[RoomView] Failed to add to queue:', error);
+      alert(error instanceof Error ? error.message : 'Failed to add track to queue');
     }
   }
 
@@ -90,6 +169,23 @@ export function RoomView() {
   const activeParticipants = participants;
   const connectedCount = participants.filter(p => p.connection_status === 'connected').length;
 
+  // Find current user's participant record to get their nickname
+  const currentParticipant = participants.find(p => {
+    // For authenticated users, match by user_id
+    if (session?.user_id) {
+      return p.user_id === session.user_id;
+    }
+    // For anonymous users, we need to identify them somehow
+    // Since we don't store anonymous user identity reliably, we can't find them here
+    // We'll need to get the nickname from localStorage or another source
+    return false;
+  });
+
+  // For authenticated users, use their nickname from participant record
+  // For anonymous users, get from localStorage (set during join)
+  const currentUserNickname = currentParticipant?.nickname ||
+    (!session ? localStorage.getItem('syncjam_guest_nickname') : null);
+
   return (
     <div className="room-view-mobile">
       {/* Mobile Header */}
@@ -102,21 +198,21 @@ export function RoomView() {
         </div>
         <div className="room-header-actions">
           {isHost && (
-            <span className="host-badge-small">👑</span>
+            <Crown size={20} className="host-badge-small" />
           )}
           <button
             className="share-button-icon"
             onClick={copyShareLink}
             title="Share room"
           >
-            🔗
+            <Share2 size={18} />
           </button>
           <button
             className="leave-button-icon"
             onClick={handleLeaveRoom}
             title="Leave room"
           >
-            ✕
+            <X size={20} />
           </button>
         </div>
       </header>
@@ -124,7 +220,7 @@ export function RoomView() {
       {/* Inactive Room Warning Banner - shown only to guests when host disconnects */}
       {!currentRoom.is_active && !isHost && (
         <div className="inactive-room-banner">
-          <div className="banner-icon">⚠️</div>
+          <AlertTriangle size={24} className="banner-icon" />
           <div className="banner-content">
             <h3 className="banner-title">Host Disconnected</h3>
             <p className="banner-message">
@@ -138,30 +234,18 @@ export function RoomView() {
       <main className="room-main-content">
         {/* Queue Tab */}
         {activeTab === 'queue' && (
-          <div className="tab-content queue-content">
-            <div className="empty-state">
-              <span className="empty-icon">🎵</span>
-              <h2>Queue is empty</h2>
-              <p>Search for songs to add them to the queue</p>
-            </div>
-          </div>
+          <QueueTab
+            roomId={currentRoom.id}
+            isHost={isHost}
+            currentUserId={session?.user_id}
+            currentUserNickname={currentUserNickname}
+            participants={participants}
+          />
         )}
 
         {/* Search Tab */}
         {activeTab === 'search' && (
-          <div className="tab-content search-content">
-            <div className="search-box">
-              <input
-                type="search"
-                placeholder="Search for songs, artists, albums..."
-                className="search-input"
-              />
-            </div>
-            <div className="empty-state">
-              <span className="empty-icon">🔍</span>
-              <p>Search for music to add to the queue</p>
-            </div>
-          </div>
+          <SearchTab onAddToQueue={handleAddToQueue} />
         )}
 
         {/* Participants Tab */}
@@ -178,22 +262,22 @@ export function RoomView() {
                   key={participant.id}
                   className={`participant-item-mobile ${participant.connection_status}`}
                 >
-                  <div className="participant-avatar">
-                    {participant.spotify_user?.display_name?.[0]?.toUpperCase() ||
-                     participant.nickname?.[0]?.toUpperCase() ||
-                     '?'}
-                  </div>
+                  <Avatar
+                    src={participant.spotify_user?.images?.[0]?.url}
+                    name={participant.nickname || participant.spotify_user?.display_name || 'Anonymous'}
+                    size="md"
+                  />
                   <div className="participant-details">
                     <div className="participant-name-row">
                       <span className="participant-name">
                         {participant.nickname || participant.spotify_user?.display_name || 'Anonymous'}
                       </span>
                       {participant.is_host && (
-                        <span className="host-badge-inline">👑</span>
+                        <Crown size={14} className="host-badge-inline" />
                       )}
                     </div>
                     {participant.spotify_user?.product === 'premium' && (
-                      <span className="premium-badge-mobile">Premium</span>
+                      <Badge variant="premium" size="sm">Premium</Badge>
                     )}
                   </div>
                   <div className={`status-dot ${participant.connection_status}`}></div>
@@ -214,7 +298,7 @@ export function RoomView() {
           <div className="tab-content chat-content">
             <div className="chat-messages">
               <div className="empty-state">
-                <span className="empty-icon">💬</span>
+                <MessageCircle size={64} className="empty-icon" />
                 <p>No messages yet. Start the conversation!</p>
               </div>
             </div>
@@ -236,21 +320,21 @@ export function RoomView() {
           className={`nav-tab ${activeTab === 'queue' ? 'active' : ''}`}
           onClick={() => setActiveTab('queue')}
         >
-          <span className="nav-icon">🎵</span>
+          <Music size={24} className="nav-icon" />
           <span className="nav-label">Queue</span>
         </button>
         <button
           className={`nav-tab ${activeTab === 'search' ? 'active' : ''}`}
           onClick={() => setActiveTab('search')}
         >
-          <span className="nav-icon">🔍</span>
+          <Search size={24} className="nav-icon" />
           <span className="nav-label">Search</span>
         </button>
         <button
           className={`nav-tab ${activeTab === 'participants' ? 'active' : ''}`}
           onClick={() => setActiveTab('participants')}
         >
-          <span className="nav-icon">👥</span>
+          <Users size={24} className="nav-icon" />
           <span className="nav-label">Participants</span>
           {connectedCount > 0 && (
             <span className="nav-badge">{connectedCount}</span>
@@ -260,7 +344,7 @@ export function RoomView() {
           className={`nav-tab ${activeTab === 'chat' ? 'active' : ''}`}
           onClick={() => setActiveTab('chat')}
         >
-          <span className="nav-icon">💬</span>
+          <MessageCircle size={24} className="nav-icon" />
           <span className="nav-label">Chat</span>
         </button>
       </nav>
@@ -268,7 +352,7 @@ export function RoomView() {
       {/* Notification Toast */}
       {showCopied && (
         <div className="toast-notification">
-          Link copied to clipboard!
+          {toastMessage}
         </div>
       )}
     </div>

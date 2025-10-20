@@ -407,7 +407,7 @@ export function RoomProvider({ children }: RoomProviderProps) {
   /**
    * Create a new room (host only)
    */
-  const createRoom = useCallback(async (name: string): Promise<Room> => {
+  const createRoom = useCallback(async (name: string, isPublic: boolean = true): Promise<Room> => {
     if (!session) {
       throw new Error('You must be logged in to create a room');
     }
@@ -421,14 +421,15 @@ export function RoomProvider({ children }: RoomProviderProps) {
 
     try {
       // Call serverless function to create room
-      const response = await fetch('/api/rooms/create', {
+      const response = await fetch('/api/rooms?action=create', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          name,
-          host_user_id: session.user_id,
+          room_name: name,
+          user_id: session.user_id,
+          is_public: isPublic,
         }),
       });
 
@@ -465,7 +466,7 @@ export function RoomProvider({ children }: RoomProviderProps) {
 
     try {
       // Call serverless function to join room
-      const response = await fetch('/api/rooms/join', {
+      const response = await fetch('/api/rooms?action=join', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -519,7 +520,7 @@ export function RoomProvider({ children }: RoomProviderProps) {
     try {
       // Get room details
       console.log('[RECONNECT] Fetching room details');
-      const response = await fetch(`/api/rooms/get?code=${code}`);
+      const response = await fetch(`/api/rooms?action=get&code=${code}`);
 
       if (!response.ok) {
         const errorData: ApiErrorResponse = await response.json();
@@ -664,7 +665,7 @@ export function RoomProvider({ children }: RoomProviderProps) {
     try {
       // Get room details
       console.log('[RECONNECT] Fetching room details');
-      const response = await fetch(`/api/rooms/get?code=${code}`);
+      const response = await fetch(`/api/rooms?action=get&code=${code}`);
 
       if (!response.ok) {
         const errorData: ApiErrorResponse = await response.json();
@@ -758,7 +759,7 @@ export function RoomProvider({ children }: RoomProviderProps) {
     try {
       // If user is host, terminate the entire room
       if (session && currentRoom.host_user_id === session.user_id) {
-        const response = await fetch('/api/rooms/terminate', {
+        const response = await fetch('/api/rooms?action=terminate', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

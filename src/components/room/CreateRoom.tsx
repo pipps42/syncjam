@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useRoom } from '../../contexts/RoomContext';
+import { Button } from '../common';
+import { Link, Music, Users, Headphones, AlertTriangle, X } from 'lucide-react';
 import './CreateRoom.css';
 
 export function CreateRoom() {
@@ -9,6 +11,7 @@ export function CreateRoom() {
   const { session } = useAuth();
   const { createRoom } = useRoom();
   const [roomName, setRoomName] = useState('');
+  const [isPublic, setIsPublic] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -29,7 +32,7 @@ export function CreateRoom() {
     setError(null);
 
     try {
-      const room = await createRoom(roomName.trim());
+      const room = await createRoom(roomName.trim(), isPublic);
       navigate(`/room/${room.code}`);
     } catch (err) {
       console.error('Failed to create room:', err);
@@ -62,43 +65,55 @@ export function CreateRoom() {
             <span className="input-hint">{roomName.length}/50 characters</span>
           </div>
 
+          <div className="form-group checkbox-group">
+            <label htmlFor="is-public" className="checkbox-label">
+              <input
+                id="is-public"
+                type="checkbox"
+                checked={isPublic}
+                onChange={(e) => setIsPublic(e.target.checked)}
+                disabled={isCreating}
+              />
+              <span>Public room</span>
+            </label>
+            <span className="input-hint">
+              {isPublic
+                ? 'Room will appear in the public rooms list'
+                : 'Room will be private (only accessible via code)'}
+            </span>
+          </div>
+
           {!session?.is_premium && (
             <div className="premium-warning">
-              <span className="warning-icon">⚠️</span>
+              <AlertTriangle size={20} />
               <p>You need Spotify Premium to host rooms</p>
             </div>
           )}
 
           {error && (
             <div className="error-message">
-              <span className="error-icon">✕</span>
+              <X size={20} />
               <p>{error}</p>
             </div>
           )}
 
           <div className="form-actions">
-            <button
+            <Button
               type="button"
-              className="button-secondary"
+              variant="secondary"
               onClick={() => navigate('/')}
               disabled={isCreating}
             >
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
-              className="button-primary"
+              variant="primary"
               disabled={isCreating || !session?.is_premium}
+              isLoading={isCreating}
             >
-              {isCreating ? (
-                <>
-                  <span className="spinner-small"></span>
-                  Creating...
-                </>
-              ) : (
-                'Create Room'
-              )}
-            </button>
+              Create Room
+            </Button>
           </div>
         </form>
 
@@ -106,19 +121,19 @@ export function CreateRoom() {
           <h3>Your room will have:</h3>
           <ul>
             <li>
-              <span className="feature-icon">🔗</span>
+              <Link size={20} className="feature-icon" />
               <span>Unique 6-character code for easy sharing</span>
             </li>
             <li>
-              <span className="feature-icon">🎵</span>
+              <Music size={20} className="feature-icon" />
               <span>Synchronized playback for all participants</span>
             </li>
             <li>
-              <span className="feature-icon">👥</span>
+              <Users size={20} className="feature-icon" />
               <span>Support for up to 20 participants</span>
             </li>
             <li>
-              <span className="feature-icon">🎧</span>
+              <Headphones size={20} className="feature-icon" />
               <span>Audio streaming for non-Premium guests</span>
             </li>
           </ul>

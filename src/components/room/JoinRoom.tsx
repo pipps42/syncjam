@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useRoom } from '../../contexts/RoomContext';
+import { Button } from '../common';
+import { X, Info } from 'lucide-react';
 import './JoinRoom.css';
 
 export function JoinRoom() {
@@ -78,7 +80,14 @@ export function JoinRoom() {
     setError(null);
 
     try {
-      await joinRoom(cleanCode, isAnonymous ? nickname.trim() : undefined);
+      const guestNickname = isAnonymous ? nickname.trim() : undefined;
+
+      // Save guest nickname to localStorage for later use in queue/chat
+      if (guestNickname) {
+        localStorage.setItem('syncjam_guest_nickname', guestNickname);
+      }
+
+      await joinRoom(cleanCode, guestNickname);
       navigate(`/room/${cleanCode}`);
     } catch (err) {
       console.error('Failed to join room:', err);
@@ -140,53 +149,47 @@ export function JoinRoom() {
 
           {error && (
             <div className="error-message">
-              <span className="error-icon">✕</span>
+              <X size={20} />
               <p>{error}</p>
             </div>
           )}
 
           <div className="form-actions">
-            <button
+            <Button
               type="button"
-              className="button-secondary"
+              variant="secondary"
               onClick={() => navigate('/')}
               disabled={isJoining}
             >
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
-              className="button-primary"
+              variant="primary"
               disabled={isJoining}
+              isLoading={isJoining}
             >
-              {isJoining ? (
-                <>
-                  <span className="spinner-small"></span>
-                  Joining...
-                </>
-              ) : (
-                'Join Room'
-              )}
-            </button>
+              Join Room
+            </Button>
           </div>
         </form>
 
         {!session && (
           <div className="auth-suggestion">
             <p>Want to access your Spotify library?</p>
-            <button
-              className="link-button"
+            <Button
+              variant="ghost"
               onClick={() => navigate('/login')}
               disabled={isJoining}
             >
               Sign in with Spotify
-            </button>
+            </Button>
           </div>
         )}
 
         {session && !session.is_premium && (
           <div className="info-message">
-            <span className="info-icon">ℹ️</span>
+            <Info size={20} />
             <p>
               As a free Spotify user, you'll hear the music through the host's audio stream.
               For the best experience, consider upgrading to Spotify Premium.

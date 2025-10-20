@@ -51,7 +51,7 @@ export function initiateSpotifyLogin(): void {
     redirect_uri: redirectUri,
     state,
     scope: REQUIRED_SCOPES.join(' '),
-    show_dialog: 'false', // Only show login if not already logged in
+    show_dialog: 'true', // Always show consent screen to avoid stale authorization issues
   });
 
   const authUrl = `${VITE_SPOTIFY_AUTH_ENDPOINT}?${params.toString()}`;
@@ -73,25 +73,43 @@ export function validateOAuthState(receivedState: string | null): boolean {
 }
 
 /**
- * Exchange authorization code for tokens
+ * Exchange authorization code for session
  * This calls our serverless function which handles the client_secret securely
+ * and returns the complete session data (no need to call Spotify API again)
  */
 export async function exchangeCodeForTokens(code: string): Promise<{
-  access_token: string;
-  refresh_token: string;
-  expires_in: number;
+  session: {
+    user_id: string;
+    spotify_user: any;
+    access_token: string;
+    refresh_token: string;
+    expires_at: string;
+    is_premium: boolean;
+    created_at: string;
+    updated_at: string;
+  };
+  user: any;
 }> {
-  const response = await fetch('/api/auth/callback', {
+  const response = await fetch('/api/auth?action=callback', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ code }),
+    body: JSON.stringify({
+      code,
+      redirect_uri: import.meta.env.VITE_SPOTIFY_REDIRECT_URI
+    }),
   });
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-    throw new Error(error.error || 'Failed to exchange authorization code');
+    console.error('[OAuth] API error response:', {
+      status: response.status,
+      statusText: response.statusText,
+      error
+    });
+    const message = error.details || error.error || 'Failed to exchange authorization code';
+    throw new Error(`${message} (${response.status})`);
   }
 
   return response.json();

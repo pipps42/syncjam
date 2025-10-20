@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useRoom } from '../contexts/RoomContext';
+import { Button } from './common';
+import { Crown, Users, DoorOpen } from 'lucide-react';
 import './MyRoomBanner.css';
 
 interface MyRoomData {
@@ -44,7 +46,7 @@ export function MyRoomBanner() {
     if (!session) return;
 
     try {
-      const response = await fetch(`/api/rooms/my-room?user_id=${session.user_id}`);
+      const response = await fetch(`/api/rooms?action=my-room&user_id=${session.user_id}`);
 
       if (!response.ok) {
         throw new Error('Failed to load your room');
@@ -72,7 +74,7 @@ export function MyRoomBanner() {
     setIsTerminating(true);
 
     try {
-      const response = await fetch('/api/rooms/terminate', {
+      const response = await fetch('/api/rooms?action=terminate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -133,49 +135,45 @@ export function MyRoomBanner() {
   }
 
   return (
-    <div className={`my-room-banner ${room.is_active ? 'active' : 'inactive'}`}>
+    <div className="my-room-banner">
       <div className="banner-content">
-        <div className="banner-icon">
-          <span>👑</span>
-        </div>
-
         <div className="banner-info">
           <div className="banner-header">
+            <Crown size={24} />
             <h3 className="banner-title">Your Hosted Room</h3>
-            <span className={`status-badge ${room.is_active ? 'active' : 'inactive'}`}>
-              {room.is_active ? 'Active' : 'Inactive'}
-            </span>
           </div>
 
           <div className="room-details">
-            <span className="detail-item room-name-detail">
-              <strong>{room.name}</strong>
-            </span>
+            <span className="room-name">{room.name}</span>
+            <span className="code-highlight">{room.code}</span>
+          </div>
+
+          <div className="room-meta">
             <span className="detail-item">
-              Code: <strong className="code-highlight">{room.code}</strong>
-            </span>
-            <span className="detail-item">
-              <span className="participant-icon">👥</span>
+              <Users size={16} />
               {room.participant_count} {room.participant_count === 1 ? 'participant' : 'participants'}
             </span>
           </div>
         </div>
 
         <div className="banner-actions">
-          <button
-            className="go-to-room-button"
+          <Button
+            variant="primary"
             onClick={handleGoToRoom}
             disabled={isReconnecting}
+            isLoading={isReconnecting}
           >
-            {isReconnecting ? 'Connecting...' : 'Go to Room'}
-          </button>
-          <button
-            className="terminate-button"
+            Go to Room
+          </Button>
+          <Button
+            variant="danger"
             onClick={handleTerminateRoom}
             disabled={isTerminating || isReconnecting}
+            isLoading={isTerminating}
+            icon={<DoorOpen size={16} />}
           >
-            {isTerminating ? 'Terminating...' : 'Terminate'}
-          </button>
+            Terminate
+          </Button>
         </div>
       </div>
     </div>
