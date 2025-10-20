@@ -38,7 +38,7 @@ export function PublicRoomsList() {
 
   async function loadPublicRooms() {
     try {
-      const response = await fetch('/api/rooms/list');
+      const response = await fetch('/api/rooms?action=list');
 
       if (!response.ok) {
         throw new Error('Failed to load rooms');
@@ -114,38 +114,39 @@ export function PublicRoomsList() {
       <div className="rooms-grid">
         {rooms.map((room) => (
           <Card key={room.id} variant="elevated" padding="lg" hoverable>
-            <div className="room-card-header">
-              <h4 className="room-name">{room.name}</h4>
-              <Badge variant="default" size="sm">
-                <span className="code-text">{room.code}</span>
-              </Badge>
-            </div>
-
-            <div className="room-host-info">
-              <Avatar
-                src={room.host_avatar_url}
-                name={room.host_display_name || 'Unknown'}
-                size="md"
-              />
-              <div className="host-details">
-                <span className="host-label">Hosted by</span>
-                <span className="host-name">{room.host_display_name || 'Unknown'}</span>
-              </div>
-            </div>
-
-            <div className="room-footer">
-              <div className="participant-info">
-                <Users size={16} />
-                <span className="participant-count">{room.participant_count}</span>
+            <div className="room-card-content">
+              <div className="room-card-top">
+                <div className="room-info-left">
+                  <h4 className="room-name">{room.name}</h4>
+                  <span className="room-code">{room.code}</span>
+                </div>
+                <div className="participant-info">
+                  <Users size={18} />
+                  <span className="participant-count">{room.participant_count}</span>
+                </div>
               </div>
 
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => handleJoinRoom(room.code)}
-              >
-                Join
-              </Button>
+              <div className="room-card-bottom">
+                <div className="room-host-info">
+                  <Avatar
+                    src={room.host_avatar_url}
+                    name={room.host_display_name || 'Unknown'}
+                    size="md"
+                  />
+                  <div className="host-details">
+                    <span className="host-label">Hosted by</span>
+                    <span className="host-name">{room.host_display_name || 'Unknown'}</span>
+                  </div>
+                </div>
+
+                <Button
+                  variant="secondary"
+                  size="md"
+                  onClick={() => handleJoinRoom(room.code)}
+                >
+                  Join
+                </Button>
+              </div>
             </div>
           </Card>
         ))}

@@ -79,7 +79,7 @@ export interface RoomContextValue {
   isHost: boolean;
   isLoading: boolean;
   error: string | null;
-  createRoom: (name: string) => Promise<Room>;
+  createRoom: (name: string, isPublic?: boolean) => Promise<Room>;
   joinRoom: (code: string, nickname?: string) => Promise<void>;
   leaveRoom: () => Promise<void>;
   reconnectToRoom: (code: string) => Promise<void>;

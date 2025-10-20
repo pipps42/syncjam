@@ -80,7 +80,14 @@ export function JoinRoom() {
     setError(null);
 
     try {
-      await joinRoom(cleanCode, isAnonymous ? nickname.trim() : undefined);
+      const guestNickname = isAnonymous ? nickname.trim() : undefined;
+
+      // Save guest nickname to localStorage for later use in queue/chat
+      if (guestNickname) {
+        localStorage.setItem('syncjam_guest_nickname', guestNickname);
+      }
+
+      await joinRoom(cleanCode, guestNickname);
       navigate(`/room/${cleanCode}`);
     } catch (err) {
       console.error('Failed to join room:', err);

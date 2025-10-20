@@ -87,38 +87,77 @@
   gap: var(--space-6);
 }
 
-.room-card-header {
+.room-card-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-height: 140px;
+}
+
+.room-card-top {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: var(--space-4);
+  gap: var(--space-4);
+}
+
+.room-info-left {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
   gap: var(--space-3);
 }
 
 .room-name {
-  font-size: var(--text-lg);
-  font-weight: var(--font-semibold);
+  font-size: var(--text-xl);
+  font-weight: var(--font-bold);
   color: var(--text-primary);
   margin: 0;
-  flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
 }
 
-.code-text {
+.room-code {
   font-family: var(--font-mono);
+  font-size: var(--text-lg);
+  font-weight: var(--font-bold);
+  color: var(--text-secondary);
   letter-spacing: 0.1em;
+  flex-shrink: 0;
+}
+
+.participant-info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-secondary);
+  font-size: var(--text-base);
+  flex-shrink: 0;
+}
+
+.participant-count {
+  font-weight: var(--font-bold);
+  color: var(--text-primary);
+  font-size: var(--text-base);
+}
+
+.room-card-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-4);
+  margin-top: auto;
 }
 
 .room-host-info {
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  margin-bottom: var(--space-4);
-  padding-bottom: var(--space-4);
-  border-bottom: 1px solid var(--border-color);
+  flex: 1;
+  min-width: 0;
 }
 
 .host-details {
@@ -143,26 +182,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.room-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: var(--space-4);
-}
-
-.participant-info {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  color: var(--text-secondary);
-  font-size: var(--text-sm);
-}
-
-.participant-count {
-  font-weight: var(--font-semibold);
-  color: var(--text-primary);
 }
 
 /* Responsive design */

@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useRoom } from '../../contexts/RoomContext';
+import { useAuth } from '../../contexts/AuthContext';
+import { supabase } from '../../lib/supabase';
 import { Avatar, Badge } from '../common';
 import {
   Crown,
@@ -12,6 +14,9 @@ import {
   Users,
   MessageCircle
 } from 'lucide-react';
+import { SearchTab } from './SearchTab';
+import { QueueTab } from './QueueTab';
+import type { SpotifyTrack } from '../../types/spotify';
 import './RoomViewMobile.css';
 
 type ActiveTab = 'queue' | 'search' | 'participants' | 'chat';
@@ -19,8 +24,10 @@ type ActiveTab = 'queue' | 'search' | 'participants' | 'chat';
 export function RoomView() {
   const { code } = useParams<{ code: string }>();
   const navigate = useNavigate();
+  const { session } = useAuth();
   const { currentRoom, participants, isHost, leaveRoom, isLoading, error } = useRoom();
   const [showCopied, setShowCopied] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
   const [activeTab, setActiveTab] = useState<ActiveTab>('queue');
 
   useEffect(() => {
@@ -59,6 +66,8 @@ export function RoomView() {
   async function handleLeaveRoom() {
     try {
       await leaveRoom();
+      // Clear guest nickname from localStorage when leaving
+      localStorage.removeItem('syncjam_guest_nickname');
       navigate('/');
     } catch (error) {
       console.error('Failed to leave room:', error);
@@ -72,10 +81,69 @@ export function RoomView() {
 
     try {
       await navigator.clipboard.writeText(shareUrl);
+      setToastMessage('Link copied to clipboard!');
       setShowCopied(true);
       setTimeout(() => setShowCopied(false), 2000);
     } catch (error) {
       console.error('Failed to copy:', error);
+    }
+  }
+
+  async function handleAddToQueue(track: SpotifyTrack) {
+    if (!currentRoom) return;
+
+    try {
+      // Get current max position
+      const { data: maxPosData } = await supabase
+        .from('queue_items')
+        .select('position')
+        .eq('room_id', currentRoom.id)
+        .eq('played', false)
+        .order('position', { ascending: false })
+        .limit(1);
+
+      const nextPosition = maxPosData && maxPosData.length > 0
+        ? maxPosData[0].position + 1
+        : 0;
+
+      // Get current user's nickname (only for anonymous users)
+      // Authenticated users don't have nickname - they use added_by field instead
+      const myNickname = !session ? localStorage.getItem('syncjam_guest_nickname') : null;
+
+      // Insert track into queue using Supabase Direct
+      const { error } = await supabase
+        .from('queue_items')
+        .insert({
+          room_id: currentRoom.id,
+          track_uri: track.uri,
+          added_by: session?.user_id || null,
+          added_by_nickname: myNickname,
+          position: nextPosition,
+          metadata: {
+            name: track.name,
+            artists: track.artists,
+            artistNames: track.artistNames,
+            album: track.album,
+            albumImage: track.albumImage,
+            duration_ms: track.duration_ms,
+            explicit: track.explicit,
+          },
+        });
+
+      if (error) {
+        console.error('[RoomView] Supabase error:', error);
+        throw new Error(error.message || 'Failed to add track to queue');
+      }
+
+      // Show success toast
+      setToastMessage(`Added "${track.name}" to queue`);
+      setShowCopied(true);
+      setTimeout(() => setShowCopied(false), 2000);
+
+      console.log('[RoomView] Track added to queue:', track.name);
+    } catch (error) {
+      console.error('[RoomView] Failed to add to queue:', error);
+      alert(error instanceof Error ? error.message : 'Failed to add track to queue');
     }
   }
 
@@ -100,6 +168,23 @@ export function RoomView() {
   // participants are already filtered by connection_status = 'connected' in loadParticipants
   const activeParticipants = participants;
   const connectedCount = participants.filter(p => p.connection_status === 'connected').length;
+
+  // Find current user's participant record to get their nickname
+  const currentParticipant = participants.find(p => {
+    // For authenticated users, match by user_id
+    if (session?.user_id) {
+      return p.user_id === session.user_id;
+    }
+    // For anonymous users, we need to identify them somehow
+    // Since we don't store anonymous user identity reliably, we can't find them here
+    // We'll need to get the nickname from localStorage or another source
+    return false;
+  });
+
+  // For authenticated users, use their nickname from participant record
+  // For anonymous users, get from localStorage (set during join)
+  const currentUserNickname = currentParticipant?.nickname ||
+    (!session ? localStorage.getItem('syncjam_guest_nickname') : null);
 
   return (
     <div className="room-view-mobile">
@@ -149,30 +234,18 @@ export function RoomView() {
       <main className="room-main-content">
         {/* Queue Tab */}
         {activeTab === 'queue' && (
-          <div className="tab-content queue-content">
-            <div className="empty-state">
-              <Music size={64} className="empty-icon" />
-              <h2>Queue is empty</h2>
-              <p>Search for songs to add them to the queue</p>
-            </div>
-          </div>
+          <QueueTab
+            roomId={currentRoom.id}
+            isHost={isHost}
+            currentUserId={session?.user_id}
+            currentUserNickname={currentUserNickname}
+            participants={participants}
+          />
         )}
 
         {/* Search Tab */}
         {activeTab === 'search' && (
-          <div className="tab-content search-content">
-            <div className="search-box">
-              <input
-                type="search"
-                placeholder="Search for songs, artists, albums..."
-                className="search-input"
-              />
-            </div>
-            <div className="empty-state">
-              <Search size={64} className="empty-icon" />
-              <p>Search for music to add to the queue</p>
-            </div>
-          </div>
+          <SearchTab onAddToQueue={handleAddToQueue} />
         )}
 
         {/* Participants Tab */}
@@ -279,7 +352,7 @@ export function RoomView() {
       {/* Notification Toast */}
       {showCopied && (
         <div className="toast-notification">
-          Link copied to clipboard!
+          {toastMessage}
         </div>
       )}
     </div>

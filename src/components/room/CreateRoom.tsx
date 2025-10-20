@@ -11,6 +11,7 @@ export function CreateRoom() {
   const { session } = useAuth();
   const { createRoom } = useRoom();
   const [roomName, setRoomName] = useState('');
+  const [isPublic, setIsPublic] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -31,7 +32,7 @@ export function CreateRoom() {
     setError(null);
 
     try {
-      const room = await createRoom(roomName.trim());
+      const room = await createRoom(roomName.trim(), isPublic);
       navigate(`/room/${room.code}`);
     } catch (err) {
       console.error('Failed to create room:', err);
@@ -62,6 +63,24 @@ export function CreateRoom() {
               autoFocus
             />
             <span className="input-hint">{roomName.length}/50 characters</span>
+          </div>
+
+          <div className="form-group checkbox-group">
+            <label htmlFor="is-public" className="checkbox-label">
+              <input
+                id="is-public"
+                type="checkbox"
+                checked={isPublic}
+                onChange={(e) => setIsPublic(e.target.checked)}
+                disabled={isCreating}
+              />
+              <span>Public room</span>
+            </label>
+            <span className="input-hint">
+              {isPublic
+                ? 'Room will appear in the public rooms list'
+                : 'Room will be private (only accessible via code)'}
+            </span>
           </div>
 
           {!session?.is_premium && (
