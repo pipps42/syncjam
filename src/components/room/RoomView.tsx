@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useRoom } from '../../contexts/RoomContext';
 import { useAuth } from '../../contexts/AuthContext';
+import { usePlayback } from '../../contexts/PlaybackContext';
 import { supabase } from '../../lib/supabase';
 import { Avatar, Badge } from '../common';
 import {
@@ -12,20 +13,23 @@ import {
   Music,
   Search,
   Users,
-  MessageCircle
+  MessageCircle,
+  Play
 } from 'lucide-react';
 import { SearchTab } from './SearchTab';
 import { QueueTab } from './QueueTab';
+import { PlayerTab } from '../player';
 import type { SpotifyTrack } from '../../types/spotify';
 import './RoomViewMobile.css';
 
-type ActiveTab = 'queue' | 'search' | 'participants' | 'chat';
+type ActiveTab = 'queue' | 'search' | 'player' | 'participants' | 'chat';
 
 export function RoomView() {
   const { code } = useParams<{ code: string }>();
   const navigate = useNavigate();
   const { session } = useAuth();
   const { currentRoom, participants, isHost, leaveRoom, isLoading, error } = useRoom();
+  const { play, pause } = usePlayback();
   const [showCopied, setShowCopied] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [activeTab, setActiveTab] = useState<ActiveTab>('queue');
@@ -93,17 +97,18 @@ export function RoomView() {
     if (!currentRoom) return;
 
     try {
-      // Get current max position
-      const { data: maxPosData } = await supabase
+      // Get current queue to check if it's empty
+      const { data: queueData } = await supabase
         .from('queue_items')
-        .select('position')
+        .select('*')
         .eq('room_id', currentRoom.id)
         .eq('played', false)
         .order('position', { ascending: false })
         .limit(1);
 
-      const nextPosition = maxPosData && maxPosData.length > 0
-        ? maxPosData[0].position + 1
+      const isQueueEmpty = !queueData || queueData.length === 0;
+      const nextPosition = queueData && queueData.length > 0
+        ? queueData[0].position + 1
         : 0;
 
       // Get current user's nickname (only for anonymous users)
@@ -111,7 +116,7 @@ export function RoomView() {
       const myNickname = !session ? localStorage.getItem('syncjam_guest_nickname') : null;
 
       // Insert track into queue using Supabase Direct
-      const { error } = await supabase
+      const { data: insertedTrack, error } = await supabase
         .from('queue_items')
         .insert({
           room_id: currentRoom.id,
@@ -128,11 +133,24 @@ export function RoomView() {
             duration_ms: track.duration_ms,
             explicit: track.explicit,
           },
-        });
+        })
+        .select()
+        .single();
 
       if (error) {
         console.error('[RoomView] Supabase error:', error);
         throw new Error(error.message || 'Failed to add track to queue');
+      }
+
+      // If queue was empty, auto-load this track to player (but don't auto-play)
+      if (isQueueEmpty && insertedTrack && isHost) {
+        console.log('[RoomView] Queue was empty, loading first track to player');
+
+        // Use PlaybackContext to actually load the track to Web Playback SDK
+        await play(insertedTrack);
+
+        // Immediately pause it (so it's loaded but not playing)
+        await pause();
       }
 
       // Show success toast
@@ -248,6 +266,11 @@ export function RoomView() {
           <SearchTab onAddToQueue={handleAddToQueue} />
         )}
 
+        {/* Player Tab */}
+        {activeTab === 'player' && (
+          <PlayerTab />
+        )}
+
         {/* Participants Tab */}
         {activeTab === 'participants' && (
           <div className="tab-content participants-content">
@@ -329,6 +352,13 @@ export function RoomView() {
         >
           <Search size={24} className="nav-icon" />
           <span className="nav-label">Search</span>
+        </button>
+        <button
+          className={`nav-tab ${activeTab === 'player' ? 'active' : ''}`}
+          onClick={() => setActiveTab('player')}
+        >
+          <Play size={24} className="nav-icon" />
+          <span className="nav-label">Player</span>
         </button>
         <button
           className={`nav-tab ${activeTab === 'participants' ? 'active' : ''}`}
