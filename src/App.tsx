@@ -1,6 +1,8 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { RoomProvider } from './contexts/RoomContext';
+import { PlaybackProvider } from './contexts/PlaybackContext';
+import { WebRTCProvider } from './contexts/WebRTCContext';
 import { Login, OAuthCallback } from './components/auth';
 import { Home } from './components/Home';
 import { CreateRoom } from './components/room/CreateRoom';
@@ -60,33 +62,37 @@ function App() {
     <BrowserRouter>
       <AuthProvider>
         <RoomProvider>
-          <Routes>
-            {/* Public routes */}
-            <Route path="/login" element={<Login />} />
-            <Route path="/callback" element={<OAuthCallback />} />
+          <PlaybackProvider>
+            <WebRTCProvider>
+              <Routes>
+                {/* Public routes */}
+                <Route path="/login" element={<Login />} />
+                <Route path="/callback" element={<OAuthCallback />} />
 
-            {/* Home - accessible to everyone */}
-            <Route path="/" element={<Home />} />
+                {/* Home - accessible to everyone */}
+                <Route path="/" element={<Home />} />
 
-            {/* Create room - requires Premium */}
-            <Route
-              path="/create"
-              element={
-                <HostOnlyRoute>
-                  <CreateRoom />
-                </HostOnlyRoute>
-              }
-            />
+                {/* Create room - requires Premium */}
+                <Route
+                  path="/create"
+                  element={
+                    <HostOnlyRoute>
+                      <CreateRoom />
+                    </HostOnlyRoute>
+                  }
+                />
 
-            {/* Join room - accessible to everyone (anonymous or authenticated) */}
-            <Route path="/join" element={<JoinRoomHandler />} />
+                {/* Join room - accessible to everyone (anonymous or authenticated) */}
+                <Route path="/join" element={<JoinRoomHandler />} />
 
-            {/* Room view - accessible to everyone who joined */}
-            <Route path="/room/:code" element={<RoomView />} />
+                {/* Room view - accessible to everyone who joined */}
+                <Route path="/room/:code" element={<RoomView />} />
 
-            {/* Catch all - redirect to home */}
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
+                {/* Catch all - redirect to home */}
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </WebRTCProvider>
+          </PlaybackProvider>
         </RoomProvider>
       </AuthProvider>
     </BrowserRouter>
