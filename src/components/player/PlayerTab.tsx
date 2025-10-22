@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Music, Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Loader2, AlertCircle } from 'lucide-react';
+import { Music, Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Loader2, AlertCircle, Radio } from 'lucide-react';
 import { usePlayback } from '../../contexts/PlaybackContext';
 import { useRoom } from '../../contexts/RoomContext';
 import { useWebRTC } from '../../contexts/WebRTCContext';
@@ -16,11 +16,14 @@ export function PlayerTab() {
     isPlayerReady,
     playerError,
     volume,
+    isCapturingAudio,
+    audioStream,
     play,
     pause,
     resume,
     seek,
-    setVolume
+    setVolume,
+    captureTabAudio
   } = usePlayback();
   const { connectionStatus, peerCount } = useWebRTC();
 
@@ -338,6 +341,32 @@ export function PlayerTab() {
             >
               <SkipForward size={24} />
             </button>
+          </div>
+        )}
+
+        {/* Host: Audio broadcast button */}
+        {isHost && (
+          <div className="broadcast-section">
+            {!audioStream ? (
+              <button
+                className="broadcast-button"
+                onClick={captureTabAudio}
+                disabled={isCapturingAudio}
+              >
+                <Radio size={20} />
+                <span>{isCapturingAudio ? 'Requesting permission...' : 'Start Broadcasting to Guests'}</span>
+              </button>
+            ) : (
+              <div className="broadcast-active">
+                <Radio size={20} className="broadcast-icon" />
+                <span>Broadcasting to {peerCount} guest{peerCount !== 1 ? 's' : ''}</span>
+              </div>
+            )}
+            <p className="broadcast-hint">
+              {!audioStream
+                ? 'Click to share audio with non-Premium guests'
+                : 'Guests can now hear the audio'}
+            </p>
           </div>
         )}
 

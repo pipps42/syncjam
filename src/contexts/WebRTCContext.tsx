@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, useCallback, useRef, ty
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 import { useRoom } from './RoomContext';
+import { usePlayback } from './PlaybackContext';
 import type { WebRTCSignal } from '../types/playback';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
@@ -13,9 +14,6 @@ interface WebRTCContextValue {
 
   // Audio output (for guests receiving stream)
   remoteAudioRef: React.RefObject<HTMLAudioElement | null>;
-
-  // Set audio stream (for host)
-  setAudioStream: (stream: MediaStream | null) => void;
 }
 
 const WebRTCContext = createContext<WebRTCContextValue | undefined>(undefined);
@@ -35,13 +33,13 @@ const ICE_SERVERS: RTCConfiguration = {
 export function WebRTCProvider({ children }: WebRTCProviderProps) {
   const { session } = useAuth();
   const { currentRoom, participants, isHost } = useRoom();
+  const { audioStream } = usePlayback(); // Get audio stream from PlaybackContext
 
   const [isConnected, setIsConnected] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected' | 'failed'>('disconnected');
   const [peerCount, setPeerCount] = useState(0);
 
   const remoteAudioRef = useRef<HTMLAudioElement>(null);
-  const [audioStream, setAudioStream] = useState<MediaStream | null>(null);
 
   const peerConnectionsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
   const signalingChannelRef = useRef<RealtimeChannel | null>(null);
@@ -316,8 +314,7 @@ export function WebRTCProvider({ children }: WebRTCProviderProps) {
     isConnected,
     connectionStatus,
     peerCount,
-    remoteAudioRef,
-    setAudioStream
+    remoteAudioRef
   };
 
   return (

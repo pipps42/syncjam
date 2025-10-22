@@ -21,6 +21,7 @@ interface PlaybackContextValue {
   isPlayerReady: boolean;
   playerError: string | null;
   volume: number;
+  isCapturingAudio: boolean;
 
   // Controls (host only)
   play: (track: QueueItem) => Promise<void>;
@@ -30,6 +31,7 @@ interface PlaybackContextValue {
   skipNext: () => Promise<void>;
   skipPrev: () => Promise<void>;
   setVolume: (volume: number) => void;
+  captureTabAudio: () => Promise<void>;
 
   // Audio stream for WebRTC (host only)
   audioStream: MediaStream | null;
@@ -50,11 +52,57 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
   const [isPlayerReady, setIsPlayerReady] = useState(false);
   const [playerError, setPlayerError] = useState<string | null>(null);
   const [volume, setVolume] = useState(100);
-  const [audioStream] = useState<MediaStream | null>(null);
+  const [audioStream, setAudioStream] = useState<MediaStream | null>(null);
+  const [isCapturingAudio, setIsCapturingAudio] = useState(false);
 
   const [player, setPlayer] = useState<SpotifyPlayer | null>(null);
   const [deviceId, setDeviceId] = useState<string | null>(null);
   const [playbackChannel, setPlaybackChannel] = useState<RealtimeChannel | null>(null);
+
+  /**
+   * Capture tab audio using getDisplayMedia API
+   * This allows broadcasting Spotify audio to guests via WebRTC
+   */
+  const captureTabAudio = useCallback(async () => {
+    if (!isHost || isCapturingAudio) {
+      return;
+    }
+
+    try {
+      console.log('[Playback] Requesting tab audio capture...');
+      setIsCapturingAudio(true);
+
+      // Request audio from the current tab
+      // Note: This will show a browser popup asking user to select which tab to share
+      const stream = await navigator.mediaDevices.getDisplayMedia({
+        video: false,
+        audio: {
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false,
+          channelCount: 2
+        }
+      } as any); // Cast to any because TypeScript types might not include audio-only
+
+      console.log('[Playback] Tab audio captured successfully');
+      console.log('[Playback] Audio tracks:', stream.getAudioTracks());
+
+      // Store the audio stream
+      setAudioStream(stream);
+
+      // Listen for when the user stops sharing
+      stream.getAudioTracks()[0].addEventListener('ended', () => {
+        console.log('[Playback] Tab audio sharing stopped by user');
+        setAudioStream(null);
+        setIsCapturingAudio(false);
+      });
+
+    } catch (error) {
+      console.error('[Playback] Failed to capture tab audio:', error);
+      setPlayerError('Failed to capture tab audio. Please allow audio sharing to broadcast to guests.');
+      setIsCapturingAudio(false);
+    }
+  }, [isHost, isCapturingAudio]);
 
   /**
    * Initialize Spotify Web Playback SDK (host only)
@@ -124,9 +172,6 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
         // Player state changes
         spotifyPlayer.addListener('player_state_changed', (state) => {
           console.log('[Playback] Player state changed:', state);
-
-          // TODO: Capture audio stream for WebRTC here
-          // This requires Web Audio API to capture MediaStream from player
         });
 
         // Connect player
@@ -440,6 +485,7 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
     isPlayerReady,
     playerError,
     volume,
+    isCapturingAudio,
     play,
     pause,
     resume,
@@ -447,6 +493,7 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
     skipNext,
     skipPrev,
     setVolume: handleSetVolume,
+    captureTabAudio,
     audioStream
   };
 
